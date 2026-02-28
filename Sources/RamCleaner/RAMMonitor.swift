@@ -33,8 +33,9 @@ final class RAMMonitor {
     var chipName: String = "Apple Silicon"
     var lastError: String?
 
-    private var timer: Timer?
-    private let updateInterval: TimeInterval = 2.0
+    private var backgroundTimer: Timer?
+    private var foregroundTimer: Timer?
+    private let updateInterval: TimeInterval = 3.0
 
     // System-critical processes and prefixes — NEVER kill these
     private let systemCriticalNames: Set<String> = [
@@ -72,32 +73,38 @@ final class RAMMonitor {
 
     init() {
         detectChipName()
-        refresh()
-        startTimer()
+        fetchMemoryStats()
+        fetchMemoryPressure()
+        fetchTopProcesses()
+        startBackgroundTimer()
     }
 
     deinit {
-        timer?.invalidate()
+        backgroundTimer?.invalidate()
+        foregroundTimer?.invalidate()
     }
 
     // MARK: - Timer
 
-    func startTimer() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: updateInterval, repeats: true) { [weak self] _ in
-            self?.refresh()
+    func startBackgroundTimer() {
+        backgroundTimer?.invalidate()
+        backgroundTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.fetchMemoryStats()
+            self?.fetchMemoryPressure()
         }
     }
 
-    func pauseTimer() {
-        timer?.invalidate()
-        timer = nil
+    func startForegroundTimer() {
+        foregroundTimer?.invalidate()
+        fetchTopProcesses()
+        foregroundTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.fetchTopProcesses()
+        }
     }
 
-    func resumeTimer() {
-        guard timer == nil else { return }
-        refresh()
-        startTimer()
+    func stopForegroundTimer() {
+        foregroundTimer?.invalidate()
+        foregroundTimer = nil
     }
 
     // MARK: - Detect Chip Name
@@ -154,7 +161,7 @@ final class RAMMonitor {
 
     // MARK: - Memory Statistics (matches Activity Monitor)
 
-    private func fetchMemoryStats() {
+    func fetchMemoryStats() {
         let hostPort = mach_host_self()
         defer { mach_port_deallocate(mach_task_self_, hostPort) }
         var vmStats = vm_statistics64()
@@ -214,7 +221,7 @@ final class RAMMonitor {
 
     // MARK: - Memory Pressure
 
-    private func fetchMemoryPressure() {
+    func fetchMemoryPressure() {
         if usagePercent < 60 {
             pressure = .low
         } else if usagePercent < 80 {

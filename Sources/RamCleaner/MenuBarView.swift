@@ -51,8 +51,8 @@ struct MenuBarView: View {
         }
         .frame(width: 280)
         .background(theme.bgColor)
-        .onAppear { monitor.resumeTimer() }
-        .onDisappear { monitor.pauseTimer() }
+        .onAppear { monitor.startForegroundTimer() }
+        .onDisappear { monitor.stopForegroundTimer() }
     }
 
     // MARK: - Header (centered chip name + icon)
