@@ -364,10 +364,10 @@ struct MenuBarView: View {
             Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
 
             VStack(spacing: 8) {
-                // ScrollView แนวนอน (ลากเมาส์ได้ smooth)
+                // ScrollView แนวนอน (ลากเมาส์ได้สมูท 1:1)
                 GeometryReader { geo in
-                    let itemWidth: CGFloat = 46   // width ของแต่ละ swatch (36) + spacing (5) + padding
-                    let totalWidth = itemWidth * CGFloat(appThemes.count) + 24  // 24 = padding horizontal
+                    let itemWidth: CGFloat = 46
+                    let totalWidth = itemWidth * CGFloat(appThemes.count) + 24
                     let maxOffset = max(0, totalWidth - geo.size.width)
 
                     HStack(spacing: 5) {
@@ -378,22 +378,28 @@ struct MenuBarView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
                     .offset(x: -scrollOffset)
-                    // เลื่อนหนืดตอนลาก และมี animation ปล่อยเมาส์
-                    .animation(isDragging ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: scrollOffset)
                     .gesture(
-                        DragGesture(minimumDistance: 2, coordinateSpace: .local)
+                        DragGesture(minimumDistance: 0, coordinateSpace: .local)
                             .onChanged { value in
-                                isDragging = true
+                                if !isDragging {
+                                    isDragging = true
+                                    dragStartOffset = scrollOffset
+                                }
+                                // เลื่อน 1:1 ติดขอบเมาส์
                                 let newOffset = dragStartOffset - value.translation.width
                                 scrollOffset = min(max(newOffset, 0), maxOffset)
                             }
                             .onEnded { value in
                                 isDragging = false
-                                dragStartOffset = scrollOffset
-                                // momentum หลังปล่อยเมาส์
-                                let velocity = value.predictedEndTranslation.width - value.translation.width
-                                let projected = scrollOffset - velocity * 0.15
-                                scrollOffset = min(max(projected, 0), maxOffset)
+                                
+                                // โมเมนตัมธรรมชาติโดยใช้ฟิสิกส์ Apple
+                                let predictedOffset = dragStartOffset - value.predictedEndTranslation.width
+                                let targetOffset = min(max(predictedOffset, 0), maxOffset)
+                                
+                                // ไหลลื่นๆ
+                                withAnimation(.easeOut(duration: 0.5)) {
+                                    scrollOffset = targetOffset
+                                }
                                 dragStartOffset = scrollOffset
                             }
                     )
