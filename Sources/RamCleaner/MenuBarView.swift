@@ -62,7 +62,9 @@ struct MenuBarView: View {
     @State private var statusIsSuccess = false
     @AppStorage("selectedTheme") private var selectedTheme: Int = 0
 
-    // Scroll states removed, now using native DraggableScrollView
+    @State private var scrollOffset: CGFloat = 0
+    @State private var dragStartOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
 
     private var theme: AppTheme { appThemes[selectedTheme] }
 
@@ -362,8 +364,12 @@ struct MenuBarView: View {
             Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
 
             VStack(spacing: 8) {
-                // ScrollView แนวนอนแบบ Native (ลากเมาส์ได้ + Trackpad Momentum ธรรมชาติ)
-                DraggableScrollView {
+                // ScrollView แนวนอน 1:1 แบบ HTML Mockup พร้อม Momentum
+                GeometryReader { geo in
+                    let itemWidth: CGFloat = 46
+                    let totalWidth = itemWidth * CGFloat(appThemes.count) + 24
+                    let maxOffset = max(0, totalWidth - geo.size.width)
+
                     HStack(spacing: 5) {
                         ForEach(Array(appThemes.enumerated()), id: \.offset) { i, t in
                             themePreset(t, index: i)
@@ -371,6 +377,31 @@ struct MenuBarView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
+                    .offset(x: -scrollOffset)
+                    .background(Color.black.opacity(0.001)) // พื้นผิวใสรับลาก
+                    .gesture(
+                        DragGesture(minimumDistance: 1, coordinateSpace: .global)
+                            .onChanged { value in
+                                if !isDragging {
+                                    isDragging = true
+                                    dragStartOffset = scrollOffset
+                                }
+                                let newOffset = dragStartOffset - value.translation.width
+                                scrollOffset = min(max(newOffset, 0), maxOffset)
+                            }
+                            .onEnded { value in
+                                isDragging = false
+                                dragStartOffset = scrollOffset
+                                
+                                let predictedOffset = dragStartOffset - value.predictedEndTranslation.width
+                                let targetOffset = min(max(predictedOffset, 0), maxOffset)
+                                
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                    scrollOffset = targetOffset
+                                }
+                                dragStartOffset = scrollOffset
+                            }
+                    )
                 }
                 .frame(height: 38)
             }
@@ -381,41 +412,40 @@ struct MenuBarView: View {
     private func themePreset(_ t: AppTheme, index: Int) -> some View {
         let isActive = index == selectedTheme
 
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) { selectedTheme = index }
-        } label: {
-            ZStack {
-                // พื้นหลัง
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.white.opacity(isActive ? 0.08 : 0.04))
-                    .frame(width: 36, height: 36)
+        return ZStack {
+            // พื้นหลัง
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(isActive ? 0.08 : 0.04))
+                .frame(width: 36, height: 36)
 
-                // วงกลมสี
+            // วงกลมสี
+            Circle()
+                .fill(t.accent)
+                .frame(width: isActive ? 18 : 15, height: isActive ? 18 : 15)
+                .shadow(color: t.accent.opacity(isActive ? 0.7 : 0.3),
+                        radius: isActive ? 6 : 3)
+
+            // dot indicator มุมขวาล่าง (แสดงเฉพาะตอน active)
+            if isActive {
                 Circle()
                     .fill(t.accent)
-                    .frame(width: isActive ? 18 : 15, height: isActive ? 18 : 15)
-                    .shadow(color: t.accent.opacity(isActive ? 0.7 : 0.3),
-                            radius: isActive ? 6 : 3)
-
-                // dot indicator มุมขวาล่าง (แสดงเฉพาะตอน active)
-                if isActive {
-                    Circle()
-                        .fill(t.accent)
-                        .frame(width: 4, height: 4)
-                        .offset(x: 12, y: 12)
-                        .transition(.scale.combined(with: .opacity))
-                }
+                    .frame(width: 4, height: 4)
+                    .offset(x: 12, y: 12)
+                    .transition(.scale.combined(with: .opacity))
             }
-            // ring เรืองแสงตอน active
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(isActive ? t.accent : Color.clear, lineWidth: 1.5)
-                    .shadow(color: isActive ? t.accent.opacity(0.5) : .clear, radius: 4)
-            )
-            .scaleEffect(isActive ? 1.05 : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: isActive)
         }
-        .buttonStyle(.plain)
+        .contentShape(Rectangle()) // สำคัญ: เพื่อให้ช่องว่างรับคลิกได้
+        // ring เรืองแสงตอน active
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isActive ? t.accent : Color.clear, lineWidth: 1.5)
+                .shadow(color: isActive ? t.accent.opacity(0.5) : .clear, radius: 4)
+        )
+        .scaleEffect(isActive ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: isActive)
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) { selectedTheme = index }
+        }
     }
 
     // MARK: - Footer
@@ -479,87 +509,6 @@ struct MenuBarView: View {
                     statusMessage = message
                     DispatchQueue.main.asyncAfter(deadline: .now() + 6) { statusMessage = nil }
                 }
-            }
-        }
-    }
-}
-
-// MARK: - Native Draggable ScrollView for macOS
-struct DraggableScrollView<Content: View>: NSViewRepresentable {
-    var content: Content
-
-    init(@ViewBuilder content: () -> Content) {
-        self.content = content()
-    }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = CustomNSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = false
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.horizontalScrollElasticity = .allowed
-        scrollView.verticalScrollElasticity = .none
-        
-        let hostingView = NSHostingView(rootView: content)
-        scrollView.documentView = hostingView
-        return scrollView
-    }
-
-    func updateNSView(_ nsView: NSScrollView, context: Context) {
-        if let hostingView = nsView.documentView as? NSHostingView<Content> {
-            hostingView.rootView = content
-            hostingView.setFrameSize(hostingView.fittingSize)
-        }
-    }
-
-    class CustomNSScrollView: NSScrollView {
-        var startLocation: NSPoint?
-        var startOrigin: NSPoint?
-        var isMouseDragging = false
-
-        override func scrollWheel(with event: NSEvent) {
-            super.scrollWheel(with: event)
-        }
-
-        override func mouseDown(with event: NSEvent) {
-            startLocation = event.locationInWindow
-            startOrigin = documentVisibleRect.origin
-            isMouseDragging = false
-            super.mouseDown(with: event)
-        }
-
-        override func mouseDragged(with event: NSEvent) {
-            guard let startLoc = startLocation, let startOri = startOrigin, let docView = documentView else { 
-                super.mouseDragged(with: event)
-                return 
-            }
-            
-            let deltaX = startLoc.x - event.locationInWindow.x
-            // หากเมาส์ถูกลากอย่างน้อย 2 พิกเซล ให้ถือว่าเป็นการ drag เพื่อไม่ให้ไปคลิกโดนปุ่ม
-            if abs(deltaX) > 2 {
-                isMouseDragging = true
-            }
-            
-            if isMouseDragging {
-                var newX = startOri.x + deltaX
-                let maxX = max(0, docView.bounds.width - documentVisibleRect.width)
-                newX = max(0, min(newX, maxX))
-                
-                contentView.scroll(to: NSPoint(x: newX, y: 0))
-                reflectScrolledClipView(contentView)
-            } else {
-                super.mouseDragged(with: event)
-            }
-        }
-        
-        override func mouseUp(with event: NSEvent) {
-            startLocation = nil
-            startOrigin = nil
-            if isMouseDragging {
-                isMouseDragging = false
-            } else {
-                super.mouseUp(with: event)
             }
         }
     }
