@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAM Monitor v5</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: #0a0704;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  padding: 40px 20px;
+  overflow: hidden;
+  position: relative;
+  transition: background 0.5s ease;
+}
+
+.ambient {
+  position: fixed;
+  width: 700px; height: 400px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  transition: background 0.5s ease;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.025) 2px, rgba(0,0,0,0.025) 4px);
+  pointer-events: none;
+  z-index: 100;
+}
+
+:root {
+  --accent: #ff8c00;
+  --accent-dim: rgba(255,140,0,0.1);
+  --accent-border: rgba(255,140,0,0.25);
+  --accent-glow: rgba(255,140,0,0.2);
+  --bg: #0f0c08;
+  --border: rgba(255,140,0,0.2);
+  --text: rgba(255,255,255,0.88);
+  --text-dim: rgba(255,255,255,0.38);
+  --text-muted: rgba(255,255,255,0.18);
+  --ok: #4ade80;
+}
+
+.card {
+  width: 340px;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.8), 0 50px 100px rgba(0,0,0,0.9), 0 0 60px var(--accent-glow);
+  animation: appear 0.5s ease forwards;
+  transition: box-shadow 0.5s ease, background 0.5s ease, border-color 0.5s ease;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.8;
+  transition: background 0.5s ease;
+}
+
+/* ── HEADER ── */
+.header {
+  padding: 16px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.ram-icon { width: 32px; height: 32px; flex-shrink: 0; }
+.brand-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.brand-sub { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent); opacity: 0.6; letter-spacing: 0.1em; transition: color 0.5s; }
+.status-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--accent-dim); border: 1px solid var(--accent-border);
+  border-radius: 6px; padding: 4px 9px;
+  transition: background 0.5s, border-color 0.5s;
+}
+.status-dot {
+  width: 5px; height: 5px; background: var(--accent);
+  border-radius: 50%; box-shadow: 0 0 6px var(--accent);
+  animation: flicker 2s ease-in-out infinite;
+  transition: background 0.5s, box-shadow 0.5s;
+}
+@keyframes flicker { 0%,100%{opacity:1} 45%{opacity:1} 50%{opacity:0.4} 55%{opacity:1} }
+.status-text { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent); letter-spacing: 0.1em; transition: color 0.5s; }
+
+/* ── MAIN DISPLAY ── */
+.main-display { padding: 20px 18px 16px; display: flex; align-items: flex-start; gap: 16px; }
+.meter-col { flex: 1; }
+.meter-label { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--text-muted); letter-spacing: 0.12em; margin-bottom: 8px; }
+.big-pct { font-size: 58px; font-weight: 700; line-height: 1; letter-spacing: -0.04em; color: var(--accent); text-shadow: 0 0 30px var(--accent-glow); transition: color 0.5s, text-shadow 0.5s; }
+.big-pct-sym { font-size: 22px; font-weight: 400; opacity: 0.5; margin-left: 2px; }
+.gb-line { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-dim); margin-top: 5px; letter-spacing: 0.05em; }
+.seg-bar { margin-top: 14px; display: flex; gap: 2px; align-items: flex-end; }
+.seg { flex: 1; border-radius: 2px; transition: background 0.5s; }
+.seg.filled { background: var(--accent); box-shadow: 0 0 4px var(--accent-glow); }
+.seg.half-filled { background: var(--accent); opacity: 0.35; }
+.seg.empty { background: rgba(255,255,255,0.05); }
+.right-col { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
+.mini-ring { position: relative; width: 72px; height: 72px; }
+.mini-ring svg { transform: rotate(-90deg); }
+.ring-bg2 { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 7; }
+.ring-fill2 { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: butt; stroke-dasharray: 188.5; stroke-dashoffset: 111; filter: drop-shadow(0 0 4px var(--accent)); transition: stroke 0.5s, filter 0.5s; }
+.ring-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-free { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text); line-height: 1; }
+.ring-free-l { font-family: 'Space Mono', monospace; font-size: 7px; color: var(--text-muted); margin-top: 2px; letter-spacing: 0.08em; }
+
+/* Stats */
+.stats-grid { margin: 0 18px 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.stat-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 9px 10px; }
+.stat-box-label { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--text-muted); letter-spacing: 0.1em; margin-bottom: 4px; }
+.stat-box-val { font-size: 13px; font-weight: 700; color: var(--text); }
+.stat-box-val.ok { color: var(--ok); }
+.stat-box-val.warn { color: var(--accent); transition: color 0.5s; }
+
+/* Divider */
+.div-line { height: 1px; background: rgba(255,255,255,0.05); margin: 0 18px 12px; position: relative; }
+.div-line::before {
+  content: 'PROCESSES';
+  position: absolute; top: -5px; left: 50%; transform: translateX(-50%);
+  background: var(--bg); padding: 0 10px;
+  font-family: 'Space Mono', monospace; font-size: 8px; color: var(--text-muted); letter-spacing: 0.15em;
+  transition: background 0.5s;
+}
+
+/* Processes */
+.proc-list { padding: 0 18px; display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; }
+.proc-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; transition: background 0.12s; }
+.proc-row:hover { background: var(--accent-dim); }
+.proc-rank { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent); opacity: 0.4; width: 10px; flex-shrink: 0; transition: color 0.5s; }
+.proc-name { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-dim); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proc-track { width: 50px; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; flex-shrink: 0; }
+.proc-fill { height: 100%; background: var(--accent); border-radius: 2px; opacity: 0.7; transition: background 0.5s; }
+.proc-val { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--text-muted); min-width: 48px; text-align: right; flex-shrink: 0; }
+
+/* Buttons */
+.btns { padding: 0 14px 14px; display: flex; gap: 8px; }
+.btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 8px; border-radius: 10px;
+  border: 1px solid var(--accent-border); background: var(--accent-dim);
+  cursor: pointer; font-family: 'Space Grotesk', sans-serif;
+  transition: all 0.3s; color: var(--accent);
+}
+.btn:hover { background: rgba(255,255,255,0.07); border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+.btn:active { transform: scale(0.97); }
+.btn-icon-wrap { font-size: 18px; }
+.btn-label { font-size: 11px; font-weight: 700; }
+.btn-key { font-family: 'Space Mono', monospace; font-size: 8px; opacity: 0.4; }
+
+/* ── THEME SELECTOR ── */
+.theme-section {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 0 14px;
+}
+
+.theme-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  margin-bottom: 10px;
+}
+
+.theme-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px; color: var(--text-muted); letter-spacing: 0.15em;
+}
+
+.theme-counter {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px; color: var(--accent); opacity: 0.6;
+  transition: color 0.5s;
+}
+
+/* Scroll row */
+.theme-scroll-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.scroll-btn {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  user-select: none;
+}
+.scroll-btn:hover { background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.25); }
+.scroll-btn:active { transform: scale(0.92); }
+.scroll-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+
+.theme-track-wrap {
+  flex: 1;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.theme-track {
+  display: flex;
+  gap: 6px;
+  transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.preset {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.preset:hover { transform: translateY(-2px); }
+.preset:active { transform: scale(0.93); }
+
+.preset-swatch {
+  width: 52px; height: 38px;
+  border-radius: 9px;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.15s;
+}
+
+.preset.active .preset-swatch {
+  border-color: white;
+  box-shadow: 0 0 14px rgba(255,255,255,0.3);
+  transform: scale(1.05);
+}
+
+.preset-swatch-inner {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+
+.preset-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 6.5px; color: var(--text-muted);
+  letter-spacing: 0.06em; text-align: center;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+.preset.active .preset-name { color: rgba(255,255,255,0.8); }
+
+/* Footer */
+.footer {
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding: 10px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.quit-btn {
+  background: none; border: none; cursor: pointer;
+  font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px; border-radius: 6px; transition: all 0.15s;
+}
+.quit-btn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+.footer-info { font-family: 'Space Mono', monospace; font-size: 8px; color: var(--text-muted); letter-spacing: 0.08em; }
+</style>
+</head>
+<body>
+<div class="ambient" id="ambient"></div>
+
+<div class="card" id="card">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="brand">
+      <svg class="ram-icon" viewBox="0 0 32 32" fill="none">
+        <rect x="6" y="9" width="20" height="14" rx="2" fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1"/>
+        <rect x="9" y="12" width="14" height="8" rx="1" fill="rgba(255,255,255,0.03)" stroke="var(--accent)" stroke-width="0.5" opacity="0.4"/>
+        <line x1="11" y1="14" x2="21" y2="14" stroke="var(--accent)" stroke-width="0.5" opacity="0.5"/>
+        <line x1="11" y1="16" x2="21" y2="16" stroke="var(--accent)" stroke-width="0.5" opacity="0.5"/>
+        <line x1="11" y1="18" x2="21" y2="18" stroke="var(--accent)" stroke-width="0.5" opacity="0.5"/>
+        <line x1="10" y1="9"  x2="10" y2="6"  stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="9"  x2="14" y2="6"  stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="18" y1="9"  x2="18" y2="6"  stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="9"  x2="22" y2="6"  stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="23" x2="10" y2="26" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="14" y1="23" x2="14" y2="26" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="18" y1="23" x2="18" y2="26" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="22" y1="23" x2="22" y2="26" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="16" cy="16" r="1.5" fill="var(--accent)" opacity="0.8"/>
+      </svg>
+      <div>
+        <div class="brand-name">RAM Monitor</div>
+        <div class="brand-sub">APPLE M4 · 16 GB</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot"></div>
+      <div class="status-text">ACTIVE</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main-display">
+    <div class="meter-col">
+      <div class="meter-label">MEMORY USAGE</div>
+      <div class="big-pct">41<span class="big-pct-sym">%</span></div>
+      <div class="gb-line">6.6 GB / 16.0 GB</div>
+      <div class="seg-bar">
+        <div class="seg filled"      style="height:16px"></div>
+        <div class="seg filled"      style="height:18px"></div>
+        <div class="seg filled"      style="height:20px"></div>
+        <div class="seg filled"      style="height:18px"></div>
+        <div class="seg filled"      style="height:20px"></div>
+        <div class="seg filled"      style="height:16px"></div>
+        <div class="seg half-filled" style="height:14px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+        <div class="seg empty"       style="height:12px"></div>
+      </div>
+    </div>
+    <div class="right-col">
+      <div class="mini-ring">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle class="ring-bg2"  cx="36" cy="36" r="30"/>
+          <circle class="ring-fill2" cx="36" cy="36" r="30"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="ring-free">9.4</div>
+          <div class="ring-free-l">GB FREE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-box-label">PRESSURE</div><div class="stat-box-val ok">Low</div></div>
+    <div class="stat-box"><div class="stat-box-label">SWAP</div><div class="stat-box-val">0 MB</div></div>
+    <div class="stat-box"><div class="stat-box-label">CACHED</div><div class="stat-box-val warn">2.1 GB</div></div>
+  </div>
+
+  <div class="div-line"></div>
+
+  <!-- Processes -->
+  <div class="proc-list">
+    <div class="proc-row"><div class="proc-rank">01</div><div class="proc-name">WindowServer</div><div class="proc-track"><div class="proc-fill" style="width:100%"></div></div><div class="proc-val">427 MB</div></div>
+    <div class="proc-row"><div class="proc-rank">02</div><div class="proc-name">Finder</div><div class="proc-track"><div class="proc-fill" style="width:40%"></div></div><div class="proc-val">170 MB</div></div>
+    <div class="proc-row"><div class="proc-rank">03</div><div class="proc-name">Spotlight</div><div class="proc-track"><div class="proc-fill" style="width:30%"></div></div><div class="proc-val">126 MB</div></div>
+    <div class="proc-row"><div class="proc-rank">04</div><div class="proc-name">DockHelper</div><div class="proc-track"><div class="proc-fill" style="width:26%"></div></div><div class="proc-val">112 MB</div></div>
+    <div class="proc-row"><div class="proc-rank">05</div><div class="proc-name">XprotectService</div><div class="proc-track"><div class="proc-fill" style="width:16%"></div></div><div class="proc-val">67 MB</div></div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="btns">
+    <button class="btn"><div class="btn-icon-wrap">⟳</div><div class="btn-label">Quick Clean</div><div class="btn-key">⌘C</div></button>
+    <button class="btn"><div class="btn-icon-wrap">◉</div><div class="btn-label">Deep Clean</div><div class="btn-key">⌘D</div></button>
+  </div>
+
+  <!-- ── THEME SELECTOR ── -->
+  <div class="theme-section">
+    <div class="theme-header">
+      <div class="theme-label">THEME</div>
+      <div class="theme-counter" id="themeCounter">1 / 25</div>
+    </div>
+
+    <div class="theme-scroll-wrap">
+      <button class="scroll-btn" id="btnLeft" onclick="scrollThemes(-1)" disabled>‹</button>
+
+      <div class="theme-track-wrap">
+        <div class="theme-track" id="themeTrack"></div>
+      </div>
+
+      <button class="scroll-btn" id="btnRight" onclick="scrollThemes(1)">›</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <button class="quit-btn">⏻ Quit</button>
+    <div class="footer-info">REFRESH 5S · v1.0</div>
+  </div>
+</div>
+
+<script>
+const themes = [
+  { name:'AMBER',    icon:'🟠', bg:'#100d07', swatch:'linear-gradient(135deg,#1f1200,#2e1a00)', accent:'#ff8c00', dim:'rgba(255,140,0,0.1)',  border:'rgba(255,140,0,0.22)',  glow:'rgba(255,140,0,0.18)',  cardBg:'#0f0c08', bodyBg:'#0a0704' },
+  { name:'MATRIX',   icon:'🟢', bg:'#060f09', swatch:'linear-gradient(135deg,#001a0a,#00240e)', accent:'#00ff87', dim:'rgba(0,255,135,0.08)', border:'rgba(0,255,135,0.2)',  glow:'rgba(0,255,135,0.16)', cardBg:'#070f0b', bodyBg:'#040a06' },
+  { name:'ARCTIC',   icon:'🔵', bg:'#060e14', swatch:'linear-gradient(135deg,#00101a,#001828)', accent:'#00c8ff', dim:'rgba(0,200,255,0.08)', border:'rgba(0,200,255,0.22)', glow:'rgba(0,200,255,0.16)', cardBg:'#070d12', bodyBg:'#040a0f' },
+  { name:'COSMIC',   icon:'🟣', bg:'#0c0812', swatch:'linear-gradient(135deg,#100a1a,#1a0d2a)', accent:'#a855f7', dim:'rgba(168,85,247,0.1)', border:'rgba(168,85,247,0.22)',glow:'rgba(168,85,247,0.18)',cardBg:'#0c0812', bodyBg:'#08050f' },
+  { name:'ROSE',     icon:'🩷', bg:'#120810', swatch:'linear-gradient(135deg,#1a000a,#280010)', accent:'#fb7185', dim:'rgba(251,113,133,0.1)',border:'rgba(251,113,133,0.22)',glow:'rgba(251,113,133,0.18)',cardBg:'#120810', bodyBg:'#0f050d' },
+  { name:'GOLD',     icon:'🌟', bg:'#110e04', swatch:'linear-gradient(135deg,#1a1500,#2a2000)', accent:'#f5c518', dim:'rgba(245,197,24,0.1)', border:'rgba(245,197,24,0.22)', glow:'rgba(245,197,24,0.18)', cardBg:'#110e04', bodyBg:'#0d0b02' },
+  { name:'CYAN',     icon:'🩵', bg:'#04100f', swatch:'linear-gradient(135deg,#001714,#001f1b)', accent:'#00e5cc', dim:'rgba(0,229,204,0.08)', border:'rgba(0,229,204,0.22)', glow:'rgba(0,229,204,0.16)', cardBg:'#050f0e', bodyBg:'#020c0b' },
+  { name:'LAVA',     icon:'🔴', bg:'#120506', swatch:'linear-gradient(135deg,#1a0303,#280505)', accent:'#ff3b5c', dim:'rgba(255,59,92,0.1)',  border:'rgba(255,59,92,0.22)', glow:'rgba(255,59,92,0.18)', cardBg:'#110505', bodyBg:'#0e0303' },
+  { name:'INDIGO',   icon:'💙', bg:'#070a18', swatch:'linear-gradient(135deg,#080c22,#0c1032)', accent:'#6366f1', dim:'rgba(99,102,241,0.1)', border:'rgba(99,102,241,0.22)',glow:'rgba(99,102,241,0.18)',cardBg:'#080a18', bodyBg:'#050714' },
+  { name:'LIME',     icon:'💚', bg:'#080f04', swatch:'linear-gradient(135deg,#0a1600,#122000)', accent:'#84cc16', dim:'rgba(132,204,22,0.1)', border:'rgba(132,204,22,0.22)', glow:'rgba(132,204,22,0.18)', cardBg:'#090f05', bodyBg:'#060c02' },
+  { name:'PEACH',    icon:'🍑', bg:'#140c08', swatch:'linear-gradient(135deg,#1e1008,#2c1a0a)', accent:'#ff9a6c', dim:'rgba(255,154,108,0.1)',border:'rgba(255,154,108,0.22)',glow:'rgba(255,154,108,0.18)',cardBg:'#13100b', bodyBg:'#110e08' },
+  { name:'MINT',     icon:'🌿', bg:'#061210', swatch:'linear-gradient(135deg,#051a16,#08241e)', accent:'#34d399', dim:'rgba(52,211,153,0.1)', border:'rgba(52,211,153,0.22)', glow:'rgba(52,211,153,0.18)', cardBg:'#071211', bodyBg:'#040f0d' },
+  { name:'VIOLET',   icon:'🔮', bg:'#0d0814', swatch:'linear-gradient(135deg,#12081e,#1a0c2c)', accent:'#c084fc', dim:'rgba(192,132,252,0.1)',border:'rgba(192,132,252,0.22)',glow:'rgba(192,132,252,0.18)',cardBg:'#0e0914', bodyBg:'#0a0611' },
+  { name:'CORAL',    icon:'🪸', bg:'#130a08', swatch:'linear-gradient(135deg,#1e0e08,#2c1608)', accent:'#ff6b6b', dim:'rgba(255,107,107,0.1)',border:'rgba(255,107,107,0.22)',glow:'rgba(255,107,107,0.18)',cardBg:'#130b09', bodyBg:'#100807' },
+  { name:'SKY',      icon:'☁️', bg:'#060c14', swatch:'linear-gradient(135deg,#06101e,#0a1828)', accent:'#38bdf8', dim:'rgba(56,189,248,0.1)', border:'rgba(56,189,248,0.22)', glow:'rgba(56,189,248,0.18)', cardBg:'#070c13', bodyBg:'#040a10' },
+  { name:'COPPER',   icon:'🧡', bg:'#120e08', swatch:'linear-gradient(135deg,#1a1008,#261808)', accent:'#cd7c32', dim:'rgba(205,124,50,0.1)', border:'rgba(205,124,50,0.22)', glow:'rgba(205,124,50,0.18)', cardBg:'#110e09', bodyBg:'#0f0c07' },
+  { name:'NEON',     icon:'⚡', bg:'#0a0c04', swatch:'linear-gradient(135deg,#0e1400,#181e00)', accent:'#d4f50a', dim:'rgba(212,245,10,0.1)', border:'rgba(212,245,10,0.22)', glow:'rgba(212,245,10,0.18)', cardBg:'#0a0c05', bodyBg:'#080a02' },
+  { name:'TEAL',     icon:'🦚', bg:'#051210', swatch:'linear-gradient(135deg,#061a18,#0a2422)', accent:'#2dd4bf', dim:'rgba(45,212,191,0.1)', border:'rgba(45,212,191,0.22)', glow:'rgba(45,212,191,0.18)', cardBg:'#061312', bodyBg:'#040f0e' },
+  { name:'MAGENTA',  icon:'💜', bg:'#120814', swatch:'linear-gradient(135deg,#1a0a1e,#22082c)', accent:'#e879f9', dim:'rgba(232,121,249,0.1)',border:'rgba(232,121,249,0.22)',glow:'rgba(232,121,249,0.18)',cardBg:'#110814', bodyBg:'#0f0611' },
+  { name:'SILVER',   icon:'🤍', bg:'#0d0d0f', swatch:'linear-gradient(135deg,#141418,#1a1a20)', accent:'#b0b8cc', dim:'rgba(176,184,204,0.1)',border:'rgba(176,184,204,0.2)', glow:'rgba(176,184,204,0.14)',cardBg:'#0d0d10', bodyBg:'#0a0a0d' },
+  { name:'CHERRY',   icon:'🍒', bg:'#12060a', swatch:'linear-gradient(135deg,#1c0610,#280818)', accent:'#e11d48', dim:'rgba(225,29,72,0.1)',  border:'rgba(225,29,72,0.22)',  glow:'rgba(225,29,72,0.18)',  cardBg:'#11060a', bodyBg:'#0f0508' },
+  { name:'OCEAN',    icon:'🌊', bg:'#050b14', swatch:'linear-gradient(135deg,#051020,#08182e)', accent:'#1d6fa4', dim:'rgba(29,111,164,0.12)',border:'rgba(29,111,164,0.25)', glow:'rgba(29,111,164,0.2)',  cardBg:'#060b13', bodyBg:'#040910' },
+  { name:'BLAZE',    icon:'🔥', bg:'#120808', swatch:'linear-gradient(135deg,#1e0600,#2e0e00)', accent:'#ff5500', dim:'rgba(255,85,0,0.1)',   border:'rgba(255,85,0,0.22)',   glow:'rgba(255,85,0,0.18)',   cardBg:'#110807', bodyBg:'#0e0605' },
+  { name:'ICE',      icon:'🧊', bg:'#070c12', swatch:'linear-gradient(135deg,#0a1220,#0e1a2c)', accent:'#a5f3fc', dim:'rgba(165,243,252,0.08)',border:'rgba(165,243,252,0.2)', glow:'rgba(165,243,252,0.14)',cardBg:'#080d12', bodyBg:'#050a10' },
+  { name:'AURORA',   icon:'🌌', bg:'#070b10', swatch:'linear-gradient(135deg,#080e1a,#0d1228)', accent:'#7fffd4', dim:'rgba(127,255,212,0.08)',border:'rgba(127,255,212,0.2)', glow:'rgba(127,255,212,0.15)',cardBg:'#08091a', bodyBg:'#050714' },
+];
+
+const VISIBLE = 4;
+const ITEM_W  = 58; // 52px + 6px gap
+let currentIndex = 0;
+let offset = 0;
+
+const track    = document.getElementById('themeTrack');
+const btnLeft  = document.getElementById('btnLeft');
+const btnRight = document.getElementById('btnRight');
+const counter  = document.getElementById('themeCounter');
+const ambient  = document.getElementById('ambient');
+
+// Build presets
+themes.forEach((t, i) => {
+  const el = document.createElement('div');
+  el.className = 'preset' + (i === 0 ? ' active' : '');
+  el.dataset.index = i;
+  el.innerHTML = `
+    <div class="preset-swatch" style="background:${t.swatch}">
+      <div class="preset-swatch-inner">${t.icon}</div>
+    </div>
+    <div class="preset-name">${t.name}</div>
+  `;
+  el.addEventListener('click', () => selectTheme(i));
+  track.appendChild(el);
+});
+
+function applyTheme(i) {
+  const t = themes[i];
+  const r = document.documentElement;
+  r.style.setProperty('--accent',        t.accent);
+  r.style.setProperty('--accent-dim',    t.dim);
+  r.style.setProperty('--accent-border', t.border);
+  r.style.setProperty('--accent-glow',   t.glow);
+  r.style.setProperty('--bg',            t.cardBg);
+  r.style.setProperty('--border',        t.border);
+  document.body.style.background = t.bodyBg;
+  ambient.style.background = `radial-gradient(ellipse, ${t.glow} 0%, transparent 70%)`;
+}
+
+function selectTheme(i) {
+  currentIndex = i;
+  document.querySelectorAll('.preset').forEach((p, idx) => {
+    p.classList.toggle('active', idx === i);
+  });
+  applyTheme(i);
+  counter.textContent = `${i + 1} / ${themes.length}`;
+
+  // Auto-scroll to keep selected in view
+  const trackW = VISIBLE * ITEM_W;
+  if (i * ITEM_W < offset) {
+    offset = i * ITEM_W;
+  } else if (i * ITEM_W + ITEM_W > offset + trackW) {
+    offset = i * ITEM_W + ITEM_W - trackW;
+  }
+  offset = Math.max(0, Math.min(offset, (themes.length - VISIBLE) * ITEM_W));
+  track.style.transform = `translateX(-${offset}px)`;
+  updateBtns();
+}
+
+function scrollThemes(dir) {
+  const maxOffset = (themes.length - VISIBLE) * ITEM_W;
+  offset = Math.max(0, Math.min(offset + dir * ITEM_W * 2, maxOffset));
+  track.style.transform = `translateX(-${offset}px)`;
+  updateBtns();
+}
+
+function updateBtns() {
+  const maxOffset = (themes.length - VISIBLE) * ITEM_W;
+  btnLeft.disabled  = offset <= 0;
+  btnRight.disabled = offset >= maxOffset;
+}
+
+// Touch/swipe support
+let touchStartX = 0;
+track.parentElement.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+track.parentElement.addEventListener('touchend', e => {
+  const dx = touchStartX - e.changedTouches[0].clientX;
+  if (Math.abs(dx) > 20) scrollThemes(dx > 0 ? 1 : -1);
+});
+
+// Init
+applyTheme(0);
+updateBtns();
+</script>
+</body>
+</html>

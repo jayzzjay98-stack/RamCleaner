@@ -1,0 +1,15 @@
+.DS_Store
+/.build
+/Packages
+/*.xcodeproj
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/
+.swiftpm/xcode/
+.swiftpm/security/
+.idea/
+*.xcworkspace/
+# Temporary files
+*.swp
+*~
+.DS_Store
