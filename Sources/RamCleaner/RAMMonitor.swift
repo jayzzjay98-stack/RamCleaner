@@ -87,18 +87,30 @@ final class RAMMonitor {
     // MARK: - Timer
 
     func startBackgroundTimer() {
-        backgroundTimer?.invalidate()
-        backgroundTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.fetchMemoryStats()
-            self?.fetchMemoryPressure()
+        // Must run on main thread — Timer requires main RunLoop to fire reliably
+        if Thread.isMainThread {
+            backgroundTimer?.invalidate()
+            backgroundTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.fetchMemoryStats()
+                self?.fetchMemoryPressure()
+            }
+            RunLoop.main.add(backgroundTimer!, forMode: .common)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.startBackgroundTimer()
+            }
         }
     }
 
     func startForegroundTimer() {
-        foregroundTimer?.invalidate()
-        fetchTopProcesses()
-        foregroundTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.fetchTopProcesses()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.foregroundTimer?.invalidate()
+            self.fetchTopProcesses()
+            self.foregroundTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.fetchTopProcesses()
+            }
+            RunLoop.main.add(self.foregroundTimer!, forMode: .common)
         }
     }
 
