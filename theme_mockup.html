@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RamCleaner Theme Picker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #111;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  .window {
+    width: 280px;
+    background: #0d0d0f;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+
+  /* ─── THEME SECTION ─── */
+  .theme-section {
+    padding: 10px 12px 12px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .theme-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .theme-label {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+  }
+
+  .theme-selected-name {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  /* ─── GRID ─── */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+  }
+
+  .theme-swatch {
+    position: relative;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.15s;
+  }
+
+  .theme-swatch:hover { transform: translateY(-1px); }
+  .theme-swatch:active { transform: scale(0.95); }
+
+  .swatch-dot-wrap {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  }
+
+  /* Selected state */
+  .theme-swatch.active .swatch-dot-wrap {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.0);
+    box-shadow: 0 0 0 1.5px var(--swatch-color), 0 0 12px var(--swatch-glow);
+  }
+
+  /* Color circle */
+  .swatch-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--swatch-color);
+    box-shadow: 0 0 8px var(--swatch-glow);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .theme-swatch.active .swatch-dot {
+    transform: scale(1.15);
+    box-shadow: 0 0 14px var(--swatch-glow);
+  }
+
+  /* Active indicator dot at bottom */
+  .swatch-dot-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--swatch-color);
+    opacity: 0;
+    transform: scale(0);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  .theme-swatch.active .swatch-dot-wrap::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .swatch-name {
+    font-size: 6px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    color: rgba(255,255,255,0.2);
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+
+  .theme-swatch.active .swatch-name {
+    color: rgba(255,255,255,0.75);
+  }
+
+  /* ─── FOOTER ─── */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .quit-btn {
+    font-size: 9px;
+    color: rgba(255,255,255,0.4);
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    transition: color 0.15s;
+  }
+  .quit-btn:hover { color: rgba(255,255,255,0.7); }
+
+  .refresh-label {
+    font-size: 7.5px;
+    color: rgba(255,255,255,0.25);
+    letter-spacing: 0.5px;
+  }
+
+  /* ─── STATUS MESSAGE ─── */
+  .status {
+    font-size: 9px;
+    font-weight: 500;
+    color: #4adf88;
+    padding: 0 12px 6px;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+</head>
+<body>
+
+<div class="window" id="app">
+
+  <!-- Status (optional) -->
+  <!-- <div class="status">✅ Freed 1.2 GB (cache cleared)</div> -->
+
+  <div class="theme-section">
+    <div class="theme-header">
+      <span class="theme-label">Theme</span>
+      <span class="theme-selected-name" id="selected-label">LIME</span>
+    </div>
+
+    <div class="theme-grid" id="theme-grid"></div>
+  </div>
+
+  <div class="footer">
+    <button class="quit-btn">⏻ Quit</button>
+    <span class="refresh-label">REFRESH 2S · v1.0</span>
+  </div>
+</div>
+
+<script>
+const themes = [
+  { name: 'AMBER',  color: '#ff8c00', glow: 'rgba(255,140,0,0.5)' },
+  { name: 'MATRIX', color: '#00ff87', glow: 'rgba(0,255,135,0.5)' },
+  { name: 'ARCTIC', color: '#00c7ff', glow: 'rgba(0,199,255,0.5)' },
+  { name: 'COSMIC', color: '#a854f7', glow: 'rgba(168,84,247,0.5)' },
+  { name: 'ROSE',   color: '#fa7082', glow: 'rgba(250,112,130,0.5)' },
+  { name: 'GOLD',   color: '#f5c417', glow: 'rgba(245,196,23,0.5)' },
+  { name: 'CYAN',   color: '#00e5cc', glow: 'rgba(0,229,204,0.5)' },
+  { name: 'LAVA',   color: '#ff3a5c', glow: 'rgba(255,58,92,0.5)' },
+  { name: 'LIME',   color: '#85cc17', glow: 'rgba(133,204,23,0.5)' },
+  { name: 'SILVER', color: '#b0b8cc', glow: 'rgba(176,184,204,0.4)' },
+];
+
+let selected = 8; // LIME default
+
+const grid = document.getElementById('theme-grid');
+const label = document.getElementById('selected-label');
+const app = document.getElementById('app');
+
+function setTheme(index) {
+  selected = index;
+  const t = themes[index];
+  label.textContent = t.name;
+  label.style.color = t.color;
+  app.style.setProperty('--accent', t.color);
+  document.querySelectorAll('.theme-swatch').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+  });
+}
+
+themes.forEach((t, i) => {
+  const btn = document.createElement('button');
+  btn.className = 'theme-swatch' + (i === selected ? ' active' : '');
+  btn.style.setProperty('--swatch-color', t.color);
+  btn.style.setProperty('--swatch-glow', t.glow);
+  btn.innerHTML = `
+    <div class="swatch-dot-wrap">
+      <div class="swatch-dot"></div>
+    </div>
+    <span class="swatch-name">${t.name}</span>
+  `;
+  btn.addEventListener('click', () => setTheme(i));
+  grid.appendChild(btn);
+});
+
+setTheme(selected);
+</script>
+</body>
+</html>

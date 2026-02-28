@@ -4,7 +4,6 @@ import SwiftUI
 
 struct AppTheme {
     let name: String
-    let icon: String
     let accent: Color
     let accentDim: Color
     let bgColor: Color
@@ -12,16 +11,16 @@ struct AppTheme {
 }
 
 let appThemes: [AppTheme] = [
-    AppTheme(name: "AMBER",  icon: "🟠", accent: Color(red: 1.0, green: 0.55, blue: 0.0),  accentDim: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.1), bgColor: Color(red: 0.06, green: 0.047, blue: 0.03), borderColor: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.22)),
-    AppTheme(name: "MATRIX", icon: "🟢", accent: Color(red: 0.0, green: 1.0, blue: 0.53),  accentDim: Color(red: 0.0, green: 1.0, blue: 0.53).opacity(0.08), bgColor: Color(red: 0.027, green: 0.06, blue: 0.04), borderColor: Color(red: 0.0, green: 1.0, blue: 0.53).opacity(0.2)),
-    AppTheme(name: "ARCTIC", icon: "🔵", accent: Color(red: 0.0, green: 0.78, blue: 1.0),  accentDim: Color(red: 0.0, green: 0.78, blue: 1.0).opacity(0.08), bgColor: Color(red: 0.027, green: 0.05, blue: 0.07), borderColor: Color(red: 0.0, green: 0.78, blue: 1.0).opacity(0.22)),
-    AppTheme(name: "COSMIC", icon: "🟣", accent: Color(red: 0.66, green: 0.33, blue: 0.97), accentDim: Color(red: 0.66, green: 0.33, blue: 0.97).opacity(0.1), bgColor: Color(red: 0.047, green: 0.03, blue: 0.07), borderColor: Color(red: 0.66, green: 0.33, blue: 0.97).opacity(0.22)),
-    AppTheme(name: "ROSE",   icon: "🩷", accent: Color(red: 0.98, green: 0.44, blue: 0.52), accentDim: Color(red: 0.98, green: 0.44, blue: 0.52).opacity(0.1), bgColor: Color(red: 0.07, green: 0.03, blue: 0.06), borderColor: Color(red: 0.98, green: 0.44, blue: 0.52).opacity(0.22)),
-    AppTheme(name: "GOLD",   icon: "🌟", accent: Color(red: 0.96, green: 0.77, blue: 0.09), accentDim: Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.1), bgColor: Color(red: 0.067, green: 0.055, blue: 0.016), borderColor: Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.22)),
-    AppTheme(name: "CYAN",   icon: "🩵", accent: Color(red: 0.0, green: 0.9, blue: 0.8),   accentDim: Color(red: 0.0, green: 0.9, blue: 0.8).opacity(0.08), bgColor: Color(red: 0.02, green: 0.06, blue: 0.055), borderColor: Color(red: 0.0, green: 0.9, blue: 0.8).opacity(0.22)),
-    AppTheme(name: "LAVA",   icon: "🔴", accent: Color(red: 1.0, green: 0.23, blue: 0.36),  accentDim: Color(red: 1.0, green: 0.23, blue: 0.36).opacity(0.1), bgColor: Color(red: 0.067, green: 0.02, blue: 0.02), borderColor: Color(red: 1.0, green: 0.23, blue: 0.36).opacity(0.22)),
-    AppTheme(name: "LIME",   icon: "💚", accent: Color(red: 0.52, green: 0.8, blue: 0.09),  accentDim: Color(red: 0.52, green: 0.8, blue: 0.09).opacity(0.1), bgColor: Color(red: 0.035, green: 0.06, blue: 0.02), borderColor: Color(red: 0.52, green: 0.8, blue: 0.09).opacity(0.22)),
-    AppTheme(name: "SILVER", icon: "🤍", accent: Color(red: 0.69, green: 0.72, blue: 0.8),  accentDim: Color(red: 0.69, green: 0.72, blue: 0.8).opacity(0.1), bgColor: Color(red: 0.05, green: 0.05, blue: 0.06), borderColor: Color(red: 0.69, green: 0.72, blue: 0.8).opacity(0.2)),
+    AppTheme(name: "AMBER",  accent: Color(red: 1.0, green: 0.55, blue: 0.0),  accentDim: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.1), bgColor: Color(red: 0.06, green: 0.047, blue: 0.03), borderColor: Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.22)),
+    AppTheme(name: "MATRIX", accent: Color(red: 0.0, green: 1.0, blue: 0.53),  accentDim: Color(red: 0.0, green: 1.0, blue: 0.53).opacity(0.08), bgColor: Color(red: 0.027, green: 0.06, blue: 0.04), borderColor: Color(red: 0.0, green: 1.0, blue: 0.53).opacity(0.2)),
+    AppTheme(name: "ARCTIC", accent: Color(red: 0.0, green: 0.78, blue: 1.0),  accentDim: Color(red: 0.0, green: 0.78, blue: 1.0).opacity(0.08), bgColor: Color(red: 0.027, green: 0.05, blue: 0.07), borderColor: Color(red: 0.0, green: 0.78, blue: 1.0).opacity(0.22)),
+    AppTheme(name: "COSMIC", accent: Color(red: 0.66, green: 0.33, blue: 0.97), accentDim: Color(red: 0.66, green: 0.33, blue: 0.97).opacity(0.1), bgColor: Color(red: 0.047, green: 0.03, blue: 0.07), borderColor: Color(red: 0.66, green: 0.33, blue: 0.97).opacity(0.22)),
+    AppTheme(name: "ROSE",   accent: Color(red: 0.98, green: 0.44, blue: 0.52), accentDim: Color(red: 0.98, green: 0.44, blue: 0.52).opacity(0.1), bgColor: Color(red: 0.07, green: 0.03, blue: 0.06), borderColor: Color(red: 0.98, green: 0.44, blue: 0.52).opacity(0.22)),
+    AppTheme(name: "GOLD",   accent: Color(red: 0.96, green: 0.77, blue: 0.09), accentDim: Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.1), bgColor: Color(red: 0.067, green: 0.055, blue: 0.016), borderColor: Color(red: 0.96, green: 0.77, blue: 0.09).opacity(0.22)),
+    AppTheme(name: "CYAN",   accent: Color(red: 0.0, green: 0.9, blue: 0.8),   accentDim: Color(red: 0.0, green: 0.9, blue: 0.8).opacity(0.08), bgColor: Color(red: 0.02, green: 0.06, blue: 0.055), borderColor: Color(red: 0.0, green: 0.9, blue: 0.8).opacity(0.22)),
+    AppTheme(name: "LAVA",   accent: Color(red: 1.0, green: 0.23, blue: 0.36),  accentDim: Color(red: 1.0, green: 0.23, blue: 0.36).opacity(0.1), bgColor: Color(red: 0.067, green: 0.02, blue: 0.02), borderColor: Color(red: 1.0, green: 0.23, blue: 0.36).opacity(0.22)),
+    AppTheme(name: "LIME",   accent: Color(red: 0.52, green: 0.8, blue: 0.09),  accentDim: Color(red: 0.52, green: 0.8, blue: 0.09).opacity(0.1), bgColor: Color(red: 0.035, green: 0.06, blue: 0.02), borderColor: Color(red: 0.52, green: 0.8, blue: 0.09).opacity(0.22)),
+    AppTheme(name: "SILVER", accent: Color(red: 0.69, green: 0.72, blue: 0.8),  accentDim: Color(red: 0.69, green: 0.72, blue: 0.8).opacity(0.1), bgColor: Color(red: 0.05, green: 0.05, blue: 0.06), borderColor: Color(red: 0.69, green: 0.72, blue: 0.8).opacity(0.2)),
 ]
 
 // MARK: - Menu Bar View
@@ -321,64 +320,98 @@ struct MenuBarView: View {
     // MARK: - Status + Theme
 
     private var themeSection: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             if let msg = statusMessage {
                 Text(msg.components(separatedBy: "\n").first ?? msg)
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(statusIsSuccess ? Color(red: 0.29, green: 0.87, blue: 0.5) : .red)
                     .lineLimit(1)
                     .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
             }
 
             Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
 
-            HStack {
-                Text("THEME")
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.6)).tracking(0.8)
-                Spacer()
-                Text("\(selectedTheme + 1) / \(appThemes.count)")
-                    .font(.system(size: 8, design: .monospaced))
-                    .foregroundStyle(theme.accent.opacity(0.6))
-            }
-            .padding(.horizontal, 12)
+            VStack(spacing: 8) {
+                // Header: "THEME" label + ชื่อธีมที่เลือกอยู่ (สีธีมนั้น)
+                HStack {
+                    Text("THEME")
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .tracking(1.5)
+                    Spacer()
+                    Text(appThemes[selectedTheme].name)
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundStyle(theme.accent)
+                        .tracking(1)
+                        .animation(.easeInOut(duration: 0.2), value: selectedTheme)
+                }
+                .padding(.horizontal, 12)
 
-            let cols = 5
-            VStack(spacing: 3) {
-                ForEach(0..<2, id: \.self) { row in
-                    HStack(spacing: 4) {
-                        ForEach(0..<cols, id: \.self) { col in
-                            let i = row * cols + col
-                            if i < appThemes.count {
-                                themePreset(appThemes[i], index: i)
+                // Grid 5x2
+                let cols = 5
+                VStack(spacing: 5) {
+                    ForEach(0..<2, id: \.self) { row in
+                        HStack(spacing: 5) {
+                            ForEach(0..<cols, id: \.self) { col in
+                                let i = row * cols + col
+                                if i < appThemes.count {
+                                    themePreset(appThemes[i], index: i)
+                                }
                             }
                         }
                     }
                 }
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
-        .padding(.vertical, 6)
     }
 
     private func themePreset(_ t: AppTheme, index: Int) -> some View {
-        Button {
+        let isActive = index == selectedTheme
+
+        return Button {
             withAnimation(.easeInOut(duration: 0.2)) { selectedTheme = index }
         } label: {
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(t.accent.opacity(0.15))
-                        .frame(width: 32, height: 24)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(index == selectedTheme ? Color.white : .clear, lineWidth: 1.5)
-                        )
-                    Text(t.icon).font(.system(size: 10))
+                    // พื้นหลัง
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(isActive ? 0.08 : 0.04))
+                        .frame(width: 36, height: 36)
+
+                    // วงกลมสี
+                    Circle()
+                        .fill(t.accent)
+                        .frame(width: isActive ? 18 : 15, height: isActive ? 18 : 15)
+                        .shadow(color: t.accent.opacity(isActive ? 0.7 : 0.3),
+                                radius: isActive ? 6 : 3)
+
+                    // dot indicator มุมขวาล่าง (แสดงเฉพาะตอน active)
+                    if isActive {
+                        Circle()
+                            .fill(t.accent)
+                            .frame(width: 4, height: 4)
+                            .offset(x: 12, y: 12)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
+                // ring เรืองแสงตอน active
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(isActive ? t.accent : Color.clear, lineWidth: 1.5)
+                        .shadow(color: isActive ? t.accent.opacity(0.5) : .clear, radius: 4)
+                )
+                .scaleEffect(isActive ? 1.05 : 1.0)
+                .animation(.easeInOut(duration: 0.2), value: isActive)
+
+                // ชื่อธีม
                 Text(t.name)
-                    .font(.system(size: 6, design: .monospaced))
-                    .foregroundStyle(index == selectedTheme ? .white.opacity(0.8) : .white.opacity(0.2))
+                    .font(.system(size: 6, weight: .semibold, design: .monospaced))
+                    .tracking(0.5)
+                    .foregroundStyle(isActive ? .white.opacity(0.8) : .white.opacity(0.2))
+                    .animation(.easeInOut(duration: 0.2), value: isActive)
             }
         }
         .buttonStyle(.plain)
