@@ -9,31 +9,31 @@ struct RamCleanerApp: App {
         MenuBarExtra {
             MenuBarView(monitor: monitor)
         } label: {
-            menuBarLabel
+            MenuBarLabel(usagePercent: monitor.usagePercent)
         }
         .menuBarExtraStyle(.window)
     }
+}
 
-    // MARK: - Menu Bar Label
+// แยก label ออกเป็น View ของตัวเอง
+// SwiftUI จะ track @Observable ได้เสถียรเมื่อค่าถูกส่งผ่าน property ของ View
+private struct MenuBarLabel: View {
+    let usagePercent: Int
 
-    private var menuBarLabel: some View {
+    var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "cpu")
                 .font(.system(size: 11))
-            Text("\(monitor.usagePercent)%")
+            Text("\(usagePercent)%")
                 .monospacedDigit()
                 .font(.system(size: 12, weight: .medium))
         }
-        .foregroundStyle(menuBarColor)
+        .foregroundStyle(color)
     }
 
-    private var menuBarColor: Color {
-        if monitor.usagePercent < 60 {
-            return .green
-        } else if monitor.usagePercent < 80 {
-            return .yellow
-        } else {
-            return .red
-        }
+    private var color: Color {
+        if usagePercent < 60 { return .green }
+        else if usagePercent < 80 { return .yellow }
+        else { return .red }
     }
 }
