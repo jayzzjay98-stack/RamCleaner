@@ -35,6 +35,9 @@ struct MenuBarView: View {
     @State private var statusIsSuccess = false
     @AppStorage("selectedTheme") private var selectedTheme: Int = 0
 
+    @State private var scrollOffset: CGFloat = 0
+    @State private var dragStartOffset: CGFloat = 0
+
     private var theme: AppTheme { appThemes[selectedTheme] }
 
     var body: some View {
@@ -348,8 +351,12 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 12)
 
-                // ScrollView แนวนอน
-                ScrollView(.horizontal, showsIndicators: false) {
+                // ScrollView แนวนอน (ลากเมาส์ได้)
+                GeometryReader { geo in
+                    let itemWidth: CGFloat = 46   // width ของแต่ละ swatch (36) + spacing (5) + padding
+                    let totalWidth = itemWidth * CGFloat(appThemes.count) + 24  // 24 = padding horizontal
+                    let maxOffset = max(0, totalWidth - geo.size.width)
+
                     HStack(spacing: 5) {
                         ForEach(Array(appThemes.enumerated()), id: \.offset) { i, t in
                             themePreset(t, index: i)
@@ -357,7 +364,28 @@ struct MenuBarView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
+                    .offset(x: -scrollOffset)
+                    .gesture(
+                        DragGesture(minimumDistance: 2)
+                            .onChanged { value in
+                                let newOffset = dragStartOffset - value.translation.width
+                                scrollOffset = min(max(newOffset, 0), maxOffset)
+                            }
+                            .onEnded { value in
+                                dragStartOffset = scrollOffset
+                                // momentum: เลื่อนต่อเล็กน้อยหลังปล่อยเมาส์
+                                let velocity = -value.predictedEndTranslation.width - (-value.translation.width)
+                                let projected = scrollOffset + velocity * 0.15
+                                withAnimation(.easeOut(duration: 0.3)) {
+                                    scrollOffset = min(max(projected, 0), maxOffset)
+                                }
+                                dragStartOffset = scrollOffset
+                            }
+                    )
+                    .animation(.interactiveSpring(), value: scrollOffset)
                 }
+                .frame(height: 52)  // ความสูงพอดีกับ swatch (36) + ชื่อ (8) + spacing (4) + padding (4)
+                .clipped()
             }
             .padding(.vertical, 10)
         }
