@@ -176,24 +176,24 @@ struct MenuBarView: View {
     private var miniRing: some View {
         ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.05), lineWidth: 5)
-                .frame(width: 52, height: 52)
+                .stroke(Color.white.opacity(0.05), lineWidth: 6)
+                .frame(width: 68, height: 68)
 
             let freePercent = monitor.totalGB > 0 ? max(0.0, 1.0 - (monitor.usedGB / monitor.totalGB)) : 0.0
             Circle()
                 .trim(from: 0, to: freePercent)
-                .stroke(theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .butt))
-                .frame(width: 52, height: 52)
+                .stroke(theme.accent, style: StrokeStyle(lineWidth: 6, lineCap: .butt))
+                .frame(width: 68, height: 68)
                 .rotationEffect(.degrees(-90))
-                .shadow(color: theme.accent.opacity(0.25), radius: 3)
+                .shadow(color: theme.accent.opacity(0.25), radius: 4)
 
-            VStack(spacing: 0) {
+            VStack(spacing: 1) {
                 Text(String(format: "%.1f", max(0, monitor.totalGB - monitor.usedGB)))
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .font(.system(size: 17, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
                     .monospacedDigit()
                 Text("FREE")
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
