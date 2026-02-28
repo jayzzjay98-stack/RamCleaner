@@ -348,21 +348,16 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 12)
 
-                // Grid 5x2
-                let cols = 5
-                VStack(spacing: 5) {
-                    ForEach(0..<2, id: \.self) { row in
-                        HStack(spacing: 5) {
-                            ForEach(0..<cols, id: \.self) { col in
-                                let i = row * cols + col
-                                if i < appThemes.count {
-                                    themePreset(appThemes[i], index: i)
-                                }
-                            }
+                // ScrollView แนวนอน
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        ForEach(Array(appThemes.enumerated()), id: \.offset) { i, t in
+                            themePreset(t, index: i)
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 2)
                 }
-                .padding(.horizontal, 12)
             }
             .padding(.vertical, 10)
         }
