@@ -89,6 +89,17 @@ final class RAMMonitor {
         }
     }
 
+    func pauseTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    func resumeTimer() {
+        guard timer == nil else { return }
+        refresh()
+        startTimer()
+    }
+
     // MARK: - Detect Chip Name
 
     private func detectChipName() {
@@ -96,34 +107,40 @@ final class RAMMonitor {
         sysctlbyname("hw.model", nil, &size, nil, 0)
         guard size > 0 else { return }
         var modelChars = [CChar](repeating: 0, count: size)
-        
-        if sysctlbyname("hw.model", &modelChars, &size, nil, 0) == 0 {
-            let model = String(cString: modelChars)
-            
-            if model.hasPrefix("Mac13,") || model.hasPrefix("Mac14,") {
-                self.chipName = "Apple M2"
-            } else if model.hasPrefix("Mac15,") {
-                self.chipName = "Apple M3"
-            } else if model.hasPrefix("Mac16,") {
-                self.chipName = "Apple M4"
-            } else if model.hasPrefix("Mac14,14") || model.hasPrefix("Mac14,15") {
-                self.chipName = "Apple M2" // Some M2 Macs
-            } else if model.hasPrefix("Mac") {
-                // Fallback for Intel or unknown future Apple Silicon
-                var brandSize: Int = 0
-                sysctlbyname("machdep.cpu.brand_string", nil, &brandSize, nil, 0)
-                if brandSize > 0 {
-                    var brandChars = [CChar](repeating: 0, count: brandSize)
-                    if sysctlbyname("machdep.cpu.brand_string", &brandChars, &brandSize, nil, 0) == 0 {
-                        let brand = String(cString: brandChars)
-                        if !brand.isEmpty {
-                            self.chipName = brand
-                            return
-                        }
+        guard sysctlbyname("hw.model", &modelChars, &size, nil, 0) == 0 else { return }
+        let model = String(cString: modelChars)
+
+        // Apple Silicon model mapping (verified against Apple's identifiers)
+        switch true {
+        case model.hasPrefix("Mac12,"):
+            self.chipName = "Apple M1"
+        case model.hasPrefix("Mac13,"):
+            // Mac13,1 = MacBook Pro 14" M1 Pro
+            // Mac13,2 = MacBook Pro 16" M1 Max
+            // Mac13,3 = Mac Studio M1 Max
+            // Mac13,4 = Mac Studio M1 Ultra
+            self.chipName = "Apple M1"
+        case model.hasPrefix("Mac14,"):
+            self.chipName = "Apple M2"
+        case model.hasPrefix("Mac15,"):
+            self.chipName = "Apple M3"
+        case model.hasPrefix("Mac16,"):
+            self.chipName = "Apple M4"
+        default:
+            // Fallback: try Intel brand string
+            var brandSize: Int = 0
+            sysctlbyname("machdep.cpu.brand_string", nil, &brandSize, nil, 0)
+            if brandSize > 0 {
+                var brandChars = [CChar](repeating: 0, count: brandSize)
+                if sysctlbyname("machdep.cpu.brand_string", &brandChars, &brandSize, nil, 0) == 0 {
+                    let brand = String(cString: brandChars)
+                    if !brand.isEmpty {
+                        self.chipName = brand
+                        return
                     }
                 }
-                self.chipName = "Apple Silicon (\(model))"
             }
+            self.chipName = "Apple Silicon (\(model))"
         }
     }
 
@@ -331,9 +348,11 @@ final class RAMMonitor {
                     let message = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
                     completion(false, message)
                 } else {
-                    self?.refresh()
+                    self?.fetchMemoryStats()
+                    self?.fetchMemoryPressure()
                     let freed = max(0, usedBefore - (self?.usedGB ?? usedBefore))
                     completion(true, String(format: "✅ Freed %.1f GB (cache cleared)", freed))
+                    self?.fetchTopProcesses()
                 }
             }
         }
@@ -388,11 +407,13 @@ final class RAMMonitor {
 
             DispatchQueue.main.async { [weak self] in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    self?.refresh()
+                    self?.fetchMemoryStats()
+                    self?.fetchMemoryPressure()
                     let freed = max(0, usedBefore - (self?.usedGB ?? usedBefore))
                     let summary = String(format: "✅ Deep clean done! Freed ~%.1f GB", freed)
                     let details = summary + "\n" + steps.joined(separator: "\n")
                     completion(true, details)
+                    self?.fetchTopProcesses()
                 }
             }
         }

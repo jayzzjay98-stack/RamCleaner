@@ -51,6 +51,8 @@ struct MenuBarView: View {
         }
         .frame(width: 280)
         .background(theme.bgColor)
+        .onAppear { monitor.resumeTimer() }
+        .onDisappear { monitor.pauseTimer() }
     }
 
     // MARK: - Header (centered chip name + icon)
@@ -99,7 +101,9 @@ struct MenuBarView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, 2)
 
-                segmentBar.padding(.top, 8)
+                segmentBar
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
             }
 
             Spacer()

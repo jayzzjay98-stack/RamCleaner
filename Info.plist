@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.justkay.RamCleanner</string>
+    <string>com.justkay.RamCleaner</string>
     <key>CFBundleName</key>
-    <string>RamCleanner</string>
+    <string>RamCleaner</string>
     <key>CFBundleDisplayName</key>
     <string>RAM Cleaner</string>
     <key>CFBundleVersion</key>
@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>RamCleanner</string>
+    <string>RamCleaner</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSUserNotificationAlertStyle</key>

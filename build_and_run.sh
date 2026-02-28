@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="RamCleanner"
+APP_NAME="RamCleaner"
 APP_BUNDLE="${APP_NAME}.app"
 BUILD_DIR=".build/debug"
 
