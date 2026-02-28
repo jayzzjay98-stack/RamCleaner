@@ -62,9 +62,7 @@ struct MenuBarView: View {
     @State private var statusIsSuccess = false
     @AppStorage("selectedTheme") private var selectedTheme: Int = 0
 
-    @State private var scrollOffset: CGFloat = 0
-    @State private var dragStartOffset: CGFloat = 0
-    @State private var isDragging: Bool = false
+    // Scroll states removed, now using native DraggableScrollView
 
     private var theme: AppTheme { appThemes[selectedTheme] }
 
@@ -364,12 +362,8 @@ struct MenuBarView: View {
             Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
 
             VStack(spacing: 8) {
-                // ScrollView แนวนอน (ลากเมาส์ได้สมูท 1:1)
-                GeometryReader { geo in
-                    let itemWidth: CGFloat = 46
-                    let totalWidth = itemWidth * CGFloat(appThemes.count) + 24
-                    let maxOffset = max(0, totalWidth - geo.size.width)
-
+                // ScrollView แนวนอนแบบ Native (ลากเมาส์ได้ + Trackpad Momentum ธรรมชาติ)
+                DraggableScrollView {
                     HStack(spacing: 5) {
                         ForEach(Array(appThemes.enumerated()), id: \.offset) { i, t in
                             themePreset(t, index: i)
@@ -377,35 +371,8 @@ struct MenuBarView: View {
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
-                    .offset(x: -scrollOffset)
-                    .gesture(
-                        DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                            .onChanged { value in
-                                if !isDragging {
-                                    isDragging = true
-                                    dragStartOffset = scrollOffset
-                                }
-                                // เลื่อน 1:1 ติดขอบเมาส์
-                                let newOffset = dragStartOffset - value.translation.width
-                                scrollOffset = min(max(newOffset, 0), maxOffset)
-                            }
-                            .onEnded { value in
-                                isDragging = false
-                                
-                                // โมเมนตัมธรรมชาติโดยใช้ฟิสิกส์ Apple
-                                let predictedOffset = dragStartOffset - value.predictedEndTranslation.width
-                                let targetOffset = min(max(predictedOffset, 0), maxOffset)
-                                
-                                // ไหลลื่นๆ
-                                withAnimation(.easeOut(duration: 0.5)) {
-                                    scrollOffset = targetOffset
-                                }
-                                dragStartOffset = scrollOffset
-                            }
-                    )
                 }
                 .frame(height: 38)
-                .clipped()
             }
             .padding(.vertical, 10)
         }
@@ -512,6 +479,87 @@ struct MenuBarView: View {
                     statusMessage = message
                     DispatchQueue.main.asyncAfter(deadline: .now() + 6) { statusMessage = nil }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Native Draggable ScrollView for macOS
+struct DraggableScrollView<Content: View>: NSViewRepresentable {
+    var content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = CustomNSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = false
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.horizontalScrollElasticity = .allowed
+        scrollView.verticalScrollElasticity = .none
+        
+        let hostingView = NSHostingView(rootView: content)
+        scrollView.documentView = hostingView
+        return scrollView
+    }
+
+    func updateNSView(_ nsView: NSScrollView, context: Context) {
+        if let hostingView = nsView.documentView as? NSHostingView<Content> {
+            hostingView.rootView = content
+            hostingView.setFrameSize(hostingView.fittingSize)
+        }
+    }
+
+    class CustomNSScrollView: NSScrollView {
+        var startLocation: NSPoint?
+        var startOrigin: NSPoint?
+        var isMouseDragging = false
+
+        override func scrollWheel(with event: NSEvent) {
+            super.scrollWheel(with: event)
+        }
+
+        override func mouseDown(with event: NSEvent) {
+            startLocation = event.locationInWindow
+            startOrigin = documentVisibleRect.origin
+            isMouseDragging = false
+            super.mouseDown(with: event)
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            guard let startLoc = startLocation, let startOri = startOrigin, let docView = documentView else { 
+                super.mouseDragged(with: event)
+                return 
+            }
+            
+            let deltaX = startLoc.x - event.locationInWindow.x
+            // หากเมาส์ถูกลากอย่างน้อย 2 พิกเซล ให้ถือว่าเป็นการ drag เพื่อไม่ให้ไปคลิกโดนปุ่ม
+            if abs(deltaX) > 2 {
+                isMouseDragging = true
+            }
+            
+            if isMouseDragging {
+                var newX = startOri.x + deltaX
+                let maxX = max(0, docView.bounds.width - documentVisibleRect.width)
+                newX = max(0, min(newX, maxX))
+                
+                contentView.scroll(to: NSPoint(x: newX, y: 0))
+                reflectScrolledClipView(contentView)
+            } else {
+                super.mouseDragged(with: event)
+            }
+        }
+        
+        override func mouseUp(with event: NSEvent) {
+            startLocation = nil
+            startOrigin = nil
+            if isMouseDragging {
+                isMouseDragging = false
+            } else {
+                super.mouseUp(with: event)
             }
         }
     }
