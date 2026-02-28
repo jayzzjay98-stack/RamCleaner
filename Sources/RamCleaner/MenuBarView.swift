@@ -60,10 +60,10 @@ struct MenuBarView: View {
         HStack(spacing: 8) {
             Spacer()
             Image(systemName: "cpu")
-                .font(.system(size: 15))
+                .font(.system(size: 17))
                 .foregroundStyle(theme.accent)
             Text("\(monitor.chipName) · \(Int(monitor.totalGB))GB")
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(.white.opacity(0.9))
             Spacer()
         }
@@ -79,24 +79,24 @@ struct MenuBarView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 0) {
                 Text("MEMORY USAGE")
-                    .font(.system(size: 8.5, weight: .medium, design: .monospaced))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.5))
                     .tracking(0.8)
                     .padding(.bottom, 4)
 
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text("\(monitor.usagePercent)")
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
                         .foregroundStyle(theme.accent)
                         .shadow(color: theme.accent.opacity(0.25), radius: 10)
                         .monospacedDigit()
                     Text("%")
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.system(size: 20, weight: .regular))
                         .foregroundStyle(theme.accent.opacity(0.5))
                 }
 
                 Text(String(format: "%.1f GB / %.1f GB", monitor.usedGB, monitor.totalGB))
-                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.7))
                     .padding(.top, 2)
 
@@ -158,11 +158,11 @@ struct MenuBarView: View {
 
             VStack(spacing: 0) {
                 Text(String(format: "%.1f", max(0, monitor.totalGB - monitor.usedGB)))
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
                     .monospacedDigit()
                 Text("FREE")
-                    .font(.system(size: 7, weight: .medium, design: .monospaced))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -189,11 +189,11 @@ struct MenuBarView: View {
     private func statBox(label: String, value: String, isOk: Bool) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(label)
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.6))
                 .tracking(0.5)
             Text(value)
-                .font(.system(size: 12, weight: .bold))
+                .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(isOk ? Color(red: 0.29, green: 0.87, blue: 0.5) : .white.opacity(0.9))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -230,7 +230,7 @@ struct MenuBarView: View {
                 HStack(spacing: 5) {
                     ProgressView().controlSize(.small)
                     Text("Scanning...")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.5))
                 }
                 .padding(.vertical, 4)
@@ -248,12 +248,12 @@ struct MenuBarView: View {
     private func processRow(_ p: ProcessInfo, rank: Int, maxMem: Double) -> some View {
         HStack(spacing: 6) {
             Text(String(format: "%02d", rank))
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(theme.accent.opacity(0.5))
                 .frame(width: 14, alignment: .leading)
 
             Text(p.name)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white)
                 .lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -266,7 +266,7 @@ struct MenuBarView: View {
             .frame(width: 40)
 
             Text(formatMemory(p.memoryMB))
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.8))
                 .frame(width: 48, alignment: .trailing)
         }
@@ -282,7 +282,7 @@ struct MenuBarView: View {
                 HStack(spacing: 6) {
                     ProgressView().controlSize(.small).tint(theme.accent)
                     Text(cleaningType)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(theme.accent)
                 }
                 .frame(maxWidth: .infinity).frame(height: 42)
@@ -304,8 +304,8 @@ struct MenuBarView: View {
     private func cleanButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Text(icon).font(.system(size: 15)).foregroundStyle(theme.accent)
-                Text(label).font(.system(size: 11, weight: .bold)).foregroundStyle(.white.opacity(0.9))
+                Text(icon).font(.system(size: 17)).foregroundStyle(theme.accent)
+                Text(label).font(.system(size: 13, weight: .bold)).foregroundStyle(.white.opacity(0.9))
             }
             .foregroundStyle(theme.accent)
             .frame(maxWidth: .infinity).frame(height: 42)
@@ -323,7 +323,7 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             if let msg = statusMessage {
                 Text(msg.components(separatedBy: "\n").first ?? msg)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(statusIsSuccess ? Color(red: 0.29, green: 0.87, blue: 0.5) : .red)
                     .lineLimit(1)
                     .padding(.horizontal, 12)
@@ -336,12 +336,12 @@ struct MenuBarView: View {
                 // Header: "THEME" label + ชื่อธีมที่เลือกอยู่ (สีธีมนั้น)
                 HStack {
                     Text("THEME")
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.35))
                         .tracking(1.5)
                     Spacer()
                     Text(appThemes[selectedTheme].name)
-                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(theme.accent)
                         .tracking(1)
                         .animation(.easeInOut(duration: 0.2), value: selectedTheme)
@@ -408,7 +408,7 @@ struct MenuBarView: View {
 
                 // ชื่อธีม
                 Text(t.name)
-                    .font(.system(size: 6, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
                     .tracking(0.5)
                     .foregroundStyle(isActive ? .white.opacity(0.8) : .white.opacity(0.2))
                     .animation(.easeInOut(duration: 0.2), value: isActive)
@@ -425,8 +425,8 @@ struct MenuBarView: View {
                 NSApplication.shared.terminate(nil)
             } label: {
                 HStack(spacing: 4) {
-                    Text("⏻").font(.system(size: 9))
-                    Text("Quit").font(.system(size: 10, weight: .medium, design: .monospaced))
+                    Text("⏻").font(.system(size: 11))
+                    Text("Quit").font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
                 .foregroundStyle(.white.opacity(0.6))
             }
@@ -436,7 +436,7 @@ struct MenuBarView: View {
             Spacer()
 
             Text("REFRESH 2S · v1.0")
-                .font(.system(size: 8, design: .monospaced))
+                .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.5))
         }
         .padding(.horizontal, 14)
