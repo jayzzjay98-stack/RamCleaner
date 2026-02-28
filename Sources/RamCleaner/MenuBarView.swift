@@ -372,7 +372,7 @@ struct MenuBarView: View {
                             }
                     )
                 }
-                .frame(height: 52)  // ความสูงพอดีกับ swatch (36) + ชื่อ (8) + spacing (4) + padding (4)
+                .frame(height: 38)
                 .clipped()
             }
             .padding(.vertical, 10)
@@ -385,45 +385,36 @@ struct MenuBarView: View {
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) { selectedTheme = index }
         } label: {
-            VStack(spacing: 4) {
-                ZStack {
-                    // พื้นหลัง
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(isActive ? 0.08 : 0.04))
-                        .frame(width: 36, height: 36)
+            ZStack {
+                // พื้นหลัง
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(isActive ? 0.08 : 0.04))
+                    .frame(width: 36, height: 36)
 
-                    // วงกลมสี
+                // วงกลมสี
+                Circle()
+                    .fill(t.accent)
+                    .frame(width: isActive ? 18 : 15, height: isActive ? 18 : 15)
+                    .shadow(color: t.accent.opacity(isActive ? 0.7 : 0.3),
+                            radius: isActive ? 6 : 3)
+
+                // dot indicator มุมขวาล่าง (แสดงเฉพาะตอน active)
+                if isActive {
                     Circle()
                         .fill(t.accent)
-                        .frame(width: isActive ? 18 : 15, height: isActive ? 18 : 15)
-                        .shadow(color: t.accent.opacity(isActive ? 0.7 : 0.3),
-                                radius: isActive ? 6 : 3)
-
-                    // dot indicator มุมขวาล่าง (แสดงเฉพาะตอน active)
-                    if isActive {
-                        Circle()
-                            .fill(t.accent)
-                            .frame(width: 4, height: 4)
-                            .offset(x: 12, y: 12)
-                            .transition(.scale.combined(with: .opacity))
-                    }
+                        .frame(width: 4, height: 4)
+                        .offset(x: 12, y: 12)
+                        .transition(.scale.combined(with: .opacity))
                 }
-                // ring เรืองแสงตอน active
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(isActive ? t.accent : Color.clear, lineWidth: 1.5)
-                        .shadow(color: isActive ? t.accent.opacity(0.5) : .clear, radius: 4)
-                )
-                .scaleEffect(isActive ? 1.05 : 1.0)
-                .animation(.easeInOut(duration: 0.2), value: isActive)
-
-                // ชื่อธีม
-                Text(t.name)
-                    .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                    .tracking(0.5)
-                    .foregroundStyle(isActive ? .white.opacity(0.8) : .white.opacity(0.2))
-                    .animation(.easeInOut(duration: 0.2), value: isActive)
             }
+            // ring เรืองแสงตอน active
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isActive ? t.accent : Color.clear, lineWidth: 1.5)
+                    .shadow(color: isActive ? t.accent.opacity(0.5) : .clear, radius: 4)
+            )
+            .scaleEffect(isActive ? 1.05 : 1.0)
+            .animation(.easeInOut(duration: 0.2), value: isActive)
         }
         .buttonStyle(.plain)
     }
