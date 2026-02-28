@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import AppKit
+import LocalAuthentication
 
 // MARK: - Data Models
 
@@ -348,32 +349,94 @@ final class RAMMonitor {
         return name
     }
 
+    // MARK: - Local Authentication & Smart Purge
+
+    private func executeWithTouchID(reason: String, action: @escaping @Sendable () -> Void, fallback: @escaping @Sendable (String) -> Void) {
+        let context = LAContext()
+        var error: NSError?
+
+        if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
+            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, evalError in
+                if success {
+                    action()
+                } else {
+                    fallback("Touch ID Canceled")
+                }
+            }
+        } else {
+            // Touch ID not available, proceed immediately (will show password prompt if needed)
+            action()
+        }
+    }
+
+    private func performSmartPurge(usedBefore: Double, isDeepClean: Bool = false, completion: @escaping @Sendable (Bool, String) -> Void) {
+        // Attempt 1: Try silent sudo purge (works if sudoers is already configured)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sudo")
+        process.arguments = ["-n", "/usr/sbin/purge"] // -n fails immediately if password needed
+        
+        do {
+            try process.run()
+            process.waitUntilExit()
+            
+            if process.terminationStatus == 0 {
+                // Success natively without password!
+                if !isDeepClean {
+                    self.finishPurge(usedBefore: usedBefore, prefix: "", completion: completion)
+                } else {
+                    completion(true, "System memory cache purged")
+                }
+                return
+            }
+        } catch {
+            // Ignored, fallback to AppleScript
+        }
+        
+        // Attempt 2: Setup sudoers and run purge using AppleScript with admin privileges
+        let currentUser = NSUserName()
+        let script = """
+        do shell script "mkdir -p /private/etc/sudoers.d && echo '\(currentUser) ALL=(ALL) NOPASSWD: /usr/sbin/purge' > /private/etc/sudoers.d/ramcleaner_\(currentUser) && chmod 440 /private/etc/sudoers.d/ramcleaner_\(currentUser) && /usr/sbin/purge" with prompt "RamCleaner needs your password once to enable Touch ID for future cleaning!" with administrator privileges
+        """
+        
+        let appleScript = NSAppleScript(source: script)
+        var errorDict: NSDictionary?
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            appleScript?.executeAndReturnError(&errorDict)
+            
+            DispatchQueue.main.async { [weak self] in
+                if let error = errorDict {
+                    let message = error[NSAppleScript.errorMessage] as? String ?? "Authorization failed"
+                    completion(false, message)
+                } else {
+                    if !isDeepClean {
+                        self?.finishPurge(usedBefore: usedBefore, prefix: "(Setup Complete) ", completion: completion)
+                    } else {
+                        completion(true, "System memory cache purged")
+                    }
+                }
+            }
+        }
+    }
+
+    private func finishPurge(usedBefore: Double, prefix: String, completion: @escaping @Sendable (Bool, String) -> Void) {
+        DispatchQueue.main.async { [weak self] in
+            self?.fetchMemoryStats()
+            self?.fetchMemoryPressure()
+            let freed = max(0, usedBefore - (self?.usedGB ?? usedBefore))
+            completion(true, String(format: "✅ \(prefix)Freed %.1f GB", freed))
+            self?.fetchTopProcesses()
+        }
+    }
+
     // MARK: - 🧹 Clean Memory (Basic — purge only)
 
     func cleanMemory(completion: @escaping @Sendable (Bool, String) -> Void) {
         let usedBefore = usedGB
-
-        let script = """
-        do shell script "/usr/sbin/purge" with administrator privileges
-        """
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let appleScript = NSAppleScript(source: script)
-            var errorDict: NSDictionary?
-            appleScript?.executeAndReturnError(&errorDict)
-
-            DispatchQueue.main.async { [weak self] in
-                if let error = errorDict {
-                    let message = error[NSAppleScript.errorMessage] as? String ?? "Unknown error"
-                    completion(false, message)
-                } else {
-                    self?.fetchMemoryStats()
-                    self?.fetchMemoryPressure()
-                    let freed = max(0, usedBefore - (self?.usedGB ?? usedBefore))
-                    completion(true, String(format: "✅ Freed %.1f GB (cache cleared)", freed))
-                    self?.fetchTopProcesses()
-                }
-            }
+        executeWithTouchID(reason: "Scan fingerprint to Quick Clean RAM") { [weak self] in
+            self?.performSmartPurge(usedBefore: usedBefore, isDeepClean: false, completion: completion)
+        } fallback: { errorMsg in
+            DispatchQueue.main.async { completion(false, errorMsg) }
         }
     }
 
@@ -382,59 +445,64 @@ final class RAMMonitor {
     func deepCleanMemory(completion: @escaping @Sendable (Bool, String) -> Void) {
         let usedBefore = usedGB
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+        executeWithTouchID(reason: "Scan fingerprint to Deep Clean RAM") { [weak self] in
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let self = self else { return }
 
-            var steps: [String] = []
-            var killedCount = 0
-            var killedMB: Double = 0
+                var steps: [String] = []
+                var killedCount = 0
+                var killedMB: Double = 0
 
-            // Step 1: Find and kill ALL orphan processes from closed apps
-            let orphans = self.findAllOrphanProcesses()
-            for orphan in orphans {
-                let result = self.killProcess(pid: orphan.pid)
-                if result {
-                    killedCount += 1
-                    killedMB += orphan.memoryMB
+                // Step 1: Find and kill ALL orphan processes from closed apps
+                let orphans = self.findAllOrphanProcesses()
+                for orphan in orphans {
+                    let result = self.killProcess(pid: orphan.pid)
+                    if result {
+                        killedCount += 1
+                        killedMB += orphan.memoryMB
+                    }
+                }
+                if killedCount > 0 {
+                    steps.append("Killed \(killedCount) orphan processes (\(Int(killedMB)) MB)")
+                } else {
+                    steps.append("No orphan processes found")
+                }
+
+                // Step 2: Clear user caches and derived data
+                let cacheSteps = self.clearUserCaches()
+                steps.append(contentsOf: cacheSteps)
+
+                // Step 3 & 4: Smart Purge + Force apps to release cached memory
+                DispatchQueue.main.async {
+                    self.performSmartPurge(usedBefore: usedBefore, isDeepClean: true) { success, msg in
+                        if success {
+                            if msg == "System memory cache purged" {
+                                steps.append(msg)
+                            }
+                            
+                            self.sendMemoryWarningToApps()
+                            steps.append("Memory pressure signal sent")
+
+                            DispatchQueue.main.async {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                    self.fetchMemoryStats()
+                                    self.fetchMemoryPressure()
+                                    let freed = max(0, usedBefore - self.usedGB)
+                                    let summary = String(format: "✅ Deep clean done! Freed ~%.1f GB", freed)
+                                    let details = summary + "\n" + steps.joined(separator: "\n")
+                                    completion(true, details)
+                                    self.fetchTopProcesses()
+                                }
+                            }
+                        } else {
+                            // Purge failed (password canceled)
+                            DispatchQueue.main.async { completion(false, msg) }
+                        }
+                    }
                 }
             }
-            if killedCount > 0 {
-                steps.append("Killed \(killedCount) orphan processes (\(Int(killedMB)) MB)")
-            } else {
-                steps.append("No orphan processes found")
-            }
-
-            // Step 2: Clear user caches and derived data
-            let cacheSteps = self.clearUserCaches()
-            steps.append(contentsOf: cacheSteps)
-
-            // Step 3: Run purge to clear file system cache
-            let purgeScript = """
-            do shell script "/usr/sbin/purge" with administrator privileges
-            """
-            let appleScript = NSAppleScript(source: purgeScript)
-            var errorDict: NSDictionary?
-            appleScript?.executeAndReturnError(&errorDict)
-
-            if errorDict == nil {
-                steps.append("System memory cache purged")
-            }
-
-            // Step 4: Force apps to release cached memory
-            self.sendMemoryWarningToApps()
-            steps.append("Memory pressure signal sent")
-
-            DispatchQueue.main.async { [weak self] in
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    self?.fetchMemoryStats()
-                    self?.fetchMemoryPressure()
-                    let freed = max(0, usedBefore - (self?.usedGB ?? usedBefore))
-                    let summary = String(format: "✅ Deep clean done! Freed ~%.1f GB", freed)
-                    let details = summary + "\n" + steps.joined(separator: "\n")
-                    completion(true, details)
-                    self?.fetchTopProcesses()
-                }
-            }
+        } fallback: { errorMsg in
+            DispatchQueue.main.async { completion(false, errorMsg) }
         }
     }
 
