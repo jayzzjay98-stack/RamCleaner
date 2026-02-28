@@ -93,11 +93,37 @@ final class RAMMonitor {
 
     private func detectChipName() {
         var size: Int = 0
-        sysctlbyname("machdep.cpu.brand_string", nil, &size, nil, 0)
+        sysctlbyname("hw.model", nil, &size, nil, 0)
         guard size > 0 else { return }
-        var brand = [CChar](repeating: 0, count: size)
-        if sysctlbyname("machdep.cpu.brand_string", &brand, &size, nil, 0) == 0 {
-            self.chipName = String(cString: brand)
+        var modelChars = [CChar](repeating: 0, count: size)
+        
+        if sysctlbyname("hw.model", &modelChars, &size, nil, 0) == 0 {
+            let model = String(cString: modelChars)
+            
+            if model.hasPrefix("Mac13,") || model.hasPrefix("Mac14,") {
+                self.chipName = "Apple M2"
+            } else if model.hasPrefix("Mac15,") {
+                self.chipName = "Apple M3"
+            } else if model.hasPrefix("Mac16,") {
+                self.chipName = "Apple M4"
+            } else if model.hasPrefix("Mac14,14") || model.hasPrefix("Mac14,15") {
+                self.chipName = "Apple M2" // Some M2 Macs
+            } else if model.hasPrefix("Mac") {
+                // Fallback for Intel or unknown future Apple Silicon
+                var brandSize: Int = 0
+                sysctlbyname("machdep.cpu.brand_string", nil, &brandSize, nil, 0)
+                if brandSize > 0 {
+                    var brandChars = [CChar](repeating: 0, count: brandSize)
+                    if sysctlbyname("machdep.cpu.brand_string", &brandChars, &brandSize, nil, 0) == 0 {
+                        let brand = String(cString: brandChars)
+                        if !brand.isEmpty {
+                            self.chipName = brand
+                            return
+                        }
+                    }
+                }
+                self.chipName = "Apple Silicon (\(model))"
+            }
         }
     }
 
@@ -184,60 +210,66 @@ final class RAMMonitor {
     // MARK: - Top 5 Processes by Memory Footprint
 
     private func fetchTopProcesses() {
-        let process = Process()
-        let pipe = Pipe()
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let process = Process()
+            let pipe = Pipe()
 
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/top")
-        process.arguments = ["-l", "1", "-o", "mem", "-n", "10", "-stats", "pid,mem,command"]
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/top")
+            process.arguments = ["-l", "1", "-o", "mem", "-n", "10", "-stats", "pid,mem,command"]
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+            do {
+                try process.run()
+                process.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let output = String(data: data, encoding: .utf8) else {
-                lastError = "Failed to decode top output"
-                return
-            }
-
-            let lines = output.components(separatedBy: "\n")
-            var processes: [ProcessInfo] = []
-            var foundHeader = false
-
-            for line in lines {
-                let trimmed = line.trimmingCharacters(in: .whitespaces)
-
-                if trimmed.hasPrefix("PID") {
-                    foundHeader = true
-                    continue
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                guard let output = String(data: data, encoding: .utf8) else {
+                    DispatchQueue.main.async { self?.lastError = "Failed to decode top output" }
+                    return
                 }
 
-                guard foundHeader, !trimmed.isEmpty else { continue }
+                let lines = output.components(separatedBy: "\n")
+                var processes: [ProcessInfo] = []
+                var foundHeader = false
 
-                let components = trimmed.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+                for line in lines {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-                guard components.count >= 3,
-                      let pid = Int32(components[0]) else {
-                    continue
+                    if trimmed.hasPrefix("PID") {
+                        foundHeader = true
+                        continue
+                    }
+
+                    guard foundHeader, !trimmed.isEmpty else { continue }
+
+                    let components = trimmed.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+
+                    guard components.count >= 3,
+                          let pid = Int32(components[0]) else {
+                        continue
+                    }
+
+                    let memString = String(components[1])
+                    let name = self?.extractAppName(from: String(components[2]).trimmingCharacters(in: .whitespaces)) ?? ""
+                    let memoryMB = self?.parseMemoryValue(memString) ?? 0
+
+                    if memoryMB < 10 { continue }
+
+                    processes.append(ProcessInfo(pid: pid, name: name, memoryMB: memoryMB))
+
+                    if processes.count >= 5 { break }
                 }
 
-                let memString = String(components[1])
-                let name = extractAppName(from: String(components[2]).trimmingCharacters(in: .whitespaces))
-                let memoryMB = parseMemoryValue(memString)
+                DispatchQueue.main.async {
+                    self?.topProcesses = processes
+                }
 
-                if memoryMB < 10 { continue }
-
-                processes.append(ProcessInfo(pid: pid, name: name, memoryMB: memoryMB))
-
-                if processes.count >= 5 { break }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.lastError = "Failed to list processes: \(error.localizedDescription)"
+                }
             }
-
-            self.topProcesses = processes
-
-        } catch {
-            lastError = "Failed to list processes: \(error.localizedDescription)"
         }
     }
 
@@ -550,9 +582,17 @@ final class RAMMonitor {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
 
         // Clear Xcode DerivedData (often several GB)
-        let derivedData = "\(homeDir)/Library/Developer/Xcode/DerivedData"
-        if clearDirectory(derivedData) {
-            results.append("Xcode DerivedData cleared")
+        // Check if Xcode is running first to avoid breaking active builds!
+        let xcodeIsRunning = NSWorkspace.shared.runningApplications
+            .contains { $0.bundleIdentifier == "com.apple.dt.Xcode" }
+        
+        if !xcodeIsRunning {
+            let derivedData = "\(homeDir)/Library/Developer/Xcode/DerivedData"
+            if clearDirectory(derivedData) {
+                results.append("Xcode DerivedData cleared")
+            }
+        } else {
+            results.append("Xcode is running, skipped DerivedData")
         }
 
         // Clear specific app caches (not all caches)

@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "RamCleanner",
+    name: "RamCleaner",
     platforms: [
         .macOS(.v14)
     ],
     targets: [
         .executableTarget(
-            name: "RamCleanner",
-            path: "Sources/RamCleanner"
+            name: "RamCleaner",
+            path: "Sources/RamCleaner"
         )
     ]
 )

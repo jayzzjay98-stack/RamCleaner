@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-APP_NAME="RamCleanner"
+APP_NAME="RamCleaner"
 APP_BUNDLE="${APP_NAME}.app"
 INSTALL_DIR="/Applications"
 
@@ -37,7 +37,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.justkay.RamCleanner</string>
+    <string>com.justkay.RamCleaner</string>
     <key>CFBundleName</key>
     <string>RAM Cleaner</string>
     <key>CFBundleDisplayName</key>
@@ -49,7 +49,7 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << 'PLIST'
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>RamCleanner</string>
+    <string>RamCleaner</string>
     <key>LSUIElement</key>
     <true/>
     <key>LSMinimumSystemVersion</key>

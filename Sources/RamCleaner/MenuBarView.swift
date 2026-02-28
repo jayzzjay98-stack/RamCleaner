@@ -113,17 +113,20 @@ struct MenuBarView: View {
     // MARK: - Segment Bar
 
     private var segmentBar: some View {
-        HStack(spacing: 1.5) {
-            let total = 16
+        GeometryReader { geometry in
+            let total = max(8, Int(geometry.size.width / 12))
             let filled = Int(Double(monitor.usagePercent) / 100.0 * Double(total))
-            ForEach(0..<total, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(
-                        i < filled ? theme.accent :
-                        i == filled ? theme.accent.opacity(0.35) :
-                        Color.white.opacity(0.05)
-                    )
-                    .frame(height: segmentHeight(i, total: total))
+            
+            HStack(spacing: 1.5) {
+                ForEach(0..<total, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(
+                            i < filled ? theme.accent :
+                            i == filled ? theme.accent.opacity(0.35) :
+                            Color.white.opacity(0.05)
+                        )
+                        .frame(height: segmentHeight(i, total: total))
+                }
             }
         }
         .frame(height: 14)
@@ -142,7 +145,7 @@ struct MenuBarView: View {
                 .stroke(Color.white.opacity(0.05), lineWidth: 5)
                 .frame(width: 52, height: 52)
 
-            let freePercent = max(0, 1.0 - Double(monitor.usagePercent) / 100.0)
+            let freePercent = monitor.totalGB > 0 ? max(0.0, 1.0 - (monitor.usedGB / monitor.totalGB)) : 0.0
             Circle()
                 .trim(from: 0, to: freePercent)
                 .stroke(theme.accent, style: StrokeStyle(lineWidth: 5, lineCap: .butt))
@@ -416,13 +419,28 @@ struct MenuBarView: View {
         cleaningInProgress = true
         cleaningType = deep ? "Deep cleaning..." : "Quick cleaning..."
         statusMessage = nil
+        
         let action = deep ? monitor.deepCleanMemory : monitor.cleanMemory
+        
+        // Timeout mechanism: in case user cancels or AppleScript hangs
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            if self.cleaningInProgress {
+                self.cleaningInProgress = false
+                self.statusMessage = "Timed out"
+                self.statusIsSuccess = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) { self.statusMessage = nil }
+            }
+        }
+        
         action { success, message in
             Task { @MainActor in
-                cleaningInProgress = false
-                statusIsSuccess = success
-                statusMessage = message
-                DispatchQueue.main.asyncAfter(deadline: .now() + 6) { statusMessage = nil }
+                // Only update if it hasn't timed out
+                if cleaningInProgress || statusMessage == nil {
+                    cleaningInProgress = false
+                    statusIsSuccess = success
+                    statusMessage = message
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 6) { statusMessage = nil }
+                }
             }
         }
     }
