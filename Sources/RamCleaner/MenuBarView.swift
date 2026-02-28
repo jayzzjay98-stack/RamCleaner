@@ -37,6 +37,7 @@ struct MenuBarView: View {
 
     @State private var scrollOffset: CGFloat = 0
     @State private var dragStartOffset: CGFloat = 0
+    @State private var isDragging: Bool = false
 
     private var theme: AppTheme { appThemes[selectedTheme] }
 
@@ -336,22 +337,7 @@ struct MenuBarView: View {
             Rectangle().fill(Color.white.opacity(0.05)).frame(height: 0.5)
 
             VStack(spacing: 8) {
-                // Header: "THEME" label + ชื่อธีมที่เลือกอยู่ (สีธีมนั้น)
-                HStack {
-                    Text("THEME")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.35))
-                        .tracking(1.5)
-                    Spacer()
-                    Text(appThemes[selectedTheme].name)
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(theme.accent)
-                        .tracking(1)
-                        .animation(.easeInOut(duration: 0.2), value: selectedTheme)
-                }
-                .padding(.horizontal, 12)
-
-                // ScrollView แนวนอน (ลากเมาส์ได้)
+                // ScrollView แนวนอน (ลากเมาส์ได้ smooth)
                 GeometryReader { geo in
                     let itemWidth: CGFloat = 46   // width ของแต่ละ swatch (36) + spacing (5) + padding
                     let totalWidth = itemWidth * CGFloat(appThemes.count) + 24  // 24 = padding horizontal
@@ -365,24 +351,26 @@ struct MenuBarView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
                     .offset(x: -scrollOffset)
+                    // ใช้ animation เฉพาะตอน momentum (หลังปล่อยเมาส์) ไม่ใช้ตอนลากจริง
+                    .animation(isDragging ? nil : .easeOut(duration: 0.25), value: scrollOffset)
                     .gesture(
-                        DragGesture(minimumDistance: 2)
+                        DragGesture(minimumDistance: 2, coordinateSpace: .local)
                             .onChanged { value in
+                                isDragging = true
+                                // direct 1:1 tracking — ไม่มี spring lag ระหว่างลาก
                                 let newOffset = dragStartOffset - value.translation.width
                                 scrollOffset = min(max(newOffset, 0), maxOffset)
                             }
                             .onEnded { value in
+                                isDragging = false
                                 dragStartOffset = scrollOffset
-                                // momentum: เลื่อนต่อเล็กน้อยหลังปล่อยเมาส์
-                                let velocity = -value.predictedEndTranslation.width - (-value.translation.width)
-                                let projected = scrollOffset + velocity * 0.15
-                                withAnimation(.easeOut(duration: 0.3)) {
-                                    scrollOffset = min(max(projected, 0), maxOffset)
-                                }
+                                // momentum หลังปล่อย
+                                let velocity = value.predictedEndTranslation.width - value.translation.width
+                                let projected = scrollOffset - velocity * 0.2
+                                scrollOffset = min(max(projected, 0), maxOffset)
                                 dragStartOffset = scrollOffset
                             }
                     )
-                    .animation(.interactiveSpring(), value: scrollOffset)
                 }
                 .frame(height: 52)  // ความสูงพอดีกับ swatch (36) + ชื่อ (8) + spacing (4) + padding (4)
                 .clipped()
