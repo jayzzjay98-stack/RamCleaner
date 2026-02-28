@@ -351,22 +351,21 @@ struct MenuBarView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 2)
                     .offset(x: -scrollOffset)
-                    // ใช้ animation เฉพาะตอน momentum (หลังปล่อยเมาส์) ไม่ใช้ตอนลากจริง
-                    .animation(isDragging ? nil : .easeOut(duration: 0.25), value: scrollOffset)
+                    // เลื่อนหนืดตอนลาก และมี animation ปล่อยเมาส์
+                    .animation(isDragging ? nil : .spring(response: 0.4, dampingFraction: 0.8), value: scrollOffset)
                     .gesture(
                         DragGesture(minimumDistance: 2, coordinateSpace: .local)
                             .onChanged { value in
                                 isDragging = true
-                                // direct 1:1 tracking — ไม่มี spring lag ระหว่างลาก
                                 let newOffset = dragStartOffset - value.translation.width
                                 scrollOffset = min(max(newOffset, 0), maxOffset)
                             }
                             .onEnded { value in
                                 isDragging = false
                                 dragStartOffset = scrollOffset
-                                // momentum หลังปล่อย
+                                // momentum หลังปล่อยเมาส์
                                 let velocity = value.predictedEndTranslation.width - value.translation.width
-                                let projected = scrollOffset - velocity * 0.2
+                                let projected = scrollOffset - velocity * 0.15
                                 scrollOffset = min(max(projected, 0), maxOffset)
                                 dragStartOffset = scrollOffset
                             }
