@@ -516,44 +516,49 @@ final class RAMMonitor {
         let runningApps = NSWorkspace.shared.runningApplications
         var activeAppNames: Set<String> = []
         var activeBundleIDs: Set<String> = []
+        var activeExecPaths: Set<String> = []
         var activePIDs: Set<Int32> = []
 
         for app in runningApps {
             activePIDs.insert(app.processIdentifier)
 
-            if let bundleID = app.bundleIdentifier {
-                activeBundleIDs.insert(bundleID.lowercased())
+            if let bundleID = app.bundleIdentifier?.lowercased() {
+                activeBundleIDs.insert(bundleID)
                 // Extract short name from bundle ID: com.spotify.client -> spotify
-                let parts = bundleID.lowercased().split(separator: ".")
+                let parts = bundleID.split(separator: ".")
                 for part in parts {
                     if part.count > 2 && part != "com" && part != "app" && part != "helper" {
                         activeAppNames.insert(String(part))
                     }
                 }
             }
-            if let name = app.localizedName {
-                activeAppNames.insert(name.lowercased())
+            if let name = app.localizedName?.lowercased() {
+                activeAppNames.insert(name)
             }
-            if let url = app.executableURL {
-                let fullPath = url.path
+            if let execPath = app.executableURL?.path.lowercased() {
+                activeExecPaths.insert(execPath)
                 // Extract .app name: /Applications/Spotify.app/Contents/MacOS/Spotify -> spotify
-                if let appRange = fullPath.range(of: ".app/") ?? fullPath.range(of: ".app") {
-                    let appPath = String(fullPath[..<appRange.lowerBound])
+                if let appRange = execPath.range(of: ".app/") ?? execPath.range(of: ".app") {
+                    let appPath = String(execPath[..<appRange.lowerBound])
                     let appName = URL(fileURLWithPath: appPath).lastPathComponent
-                    activeAppNames.insert(appName.lowercased())
+                    activeAppNames.insert(appName)
                 }
             }
         }
 
-        // Step 2: Get ALL running processes from ps with full path
-        let allProcesses = getAllProcessesWithPath()
+        // Step 2: Get ALL running processes from ps with full path and PPID
+        let allProcessesWithPPID = getAllProcessesWithPathWithPPID()
+        let allPIDs = Set(allProcessesWithPPID.map { $0.proc.pid })
 
-        // Step 3: For each process, determine if its parent app is NOT running
+        // Step 3: Check orphan conditions
         var orphans: [ProcessInfo] = []
         var seenPIDs: Set<Int32> = []
         let myPID = getpid()
 
-        for proc in allProcesses {
+        for item in allProcessesWithPPID {
+            let proc = item.proc
+            let ppid = item.ppid
+
             guard proc.pid != myPID else { continue }
             guard !activePIDs.contains(proc.pid) else { continue }  // Skip active app PIDs
             guard !seenPIDs.contains(proc.pid) else { continue }
@@ -562,45 +567,59 @@ final class RAMMonitor {
             let pathLower = proc.name.lowercased()
             let baseName = URL(fileURLWithPath: proc.name).lastPathComponent.lowercased()
 
-            // Skip system-critical processes
-            if isSystemCritical(pathLower, baseName: baseName) { continue }
-
-            // Case A: Process is inside a .app bundle
-            if let appRange = pathLower.range(of: ".app/") {
-                let appPath = String(pathLower[..<appRange.lowerBound])
-                let appName = URL(fileURLWithPath: appPath).lastPathComponent
-
-                // If the parent .app is NOT in the active apps list, it's an orphan
-                let isActive = activeAppNames.contains(appName) ||
-                    activeBundleIDs.contains(where: { $0.contains(appName) })
-
-                if !isActive {
-                    orphans.append(proc)
-                    seenPIDs.insert(proc.pid)
-                }
+            // Strict block list filtering
+            if pathLower.hasPrefix("/system/") ||
+               pathLower.hasPrefix("/usr/") ||
+               pathLower.hasPrefix("/sbin/") ||
+               pathLower.hasPrefix("/bin/") ||
+               pathLower.hasPrefix("/library/apple/") ||
+               pathLower.contains("com.apple.") ||
+               isSystemCritical(pathLower, baseName: baseName) {
                 continue
             }
 
-            // Case B: Background helper/daemon (not inside .app)
-            // Identify likely helpers by name patterns
-            let helperIndicators = [
-                "helper", "agent", "daemon", "service",
-                "crashpad", "renderer", "gpu-process", "gpu_process",
-                "cef", "electron", "framework",
-                "worker", "broker", "host",
-            ]
-            let looksLikeHelper = helperIndicators.contains(where: { baseName.contains($0) })
+            var isOrphan = false
 
-            if looksLikeHelper {
-                // Check if ANY active app name appears in this process path
-                let matchesActiveApp = activeAppNames.contains(where: { appName in
-                    baseName.contains(appName) || pathLower.contains(appName)
-                })
+            // Case A: Process is inside a .app bundle of an app that is NOT running
+            if let appRange = pathLower.range(of: ".app/") {
+                let appPath = String(pathLower[..<appRange.lowerBound])
+                let appName = URL(fileURLWithPath: appPath).lastPathComponent
+                
+                let matchesActive = activeAppNames.contains(appName) ||
+                                    activeBundleIDs.contains(where: { $0.contains(appName) }) ||
+                                    activeExecPaths.contains(where: { $0.contains(appName) })
 
-                if !matchesActiveApp {
-                    orphans.append(proc)
-                    seenPIDs.insert(proc.pid)
+                if !matchesActive {
+                    isOrphan = true
                 }
+            }
+            // Case B: parent is dead (ppid not in process table), and ppid != 1
+            else if ppid != 1 && !allPIDs.contains(ppid) {
+                isOrphan = true
+            }
+            // Case C: adopted by launchd (ppid == 1) and looks like a helper of a dead app
+            else if ppid == 1 {
+                let helperIndicators = [
+                    "helper", "renderer", "crashpad", "gpu", "worker", "broker", "electron"
+                ]
+                let looksLikeHelper = helperIndicators.contains(where: { baseName.contains($0) })
+                
+                if looksLikeHelper {
+                    let matchesActiveApp = activeAppNames.contains(where: { appName in
+                        baseName.contains(appName) || pathLower.contains(appName)
+                    }) || activeBundleIDs.contains(where: { bundleID in
+                        pathLower.contains(bundleID)
+                    })
+                    
+                    if !matchesActiveApp {
+                        isOrphan = true
+                    }
+                }
+            }
+
+            if isOrphan {
+                orphans.append(proc)
+                seenPIDs.insert(proc.pid)
             }
         }
 
@@ -610,11 +629,15 @@ final class RAMMonitor {
     // MARK: - Get All Processes with Full Path
 
     private func getAllProcessesWithPath() -> [ProcessInfo] {
+        return getAllProcessesWithPathWithPPID().map { $0.proc }
+    }
+
+    private func getAllProcessesWithPathWithPPID() -> [(proc: ProcessInfo, ppid: Int32)] {
         let process = Process()
         let pipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "pid=,rss=,comm="]
+        process.arguments = ["-axo", "pid=,ppid=,rss=,comm="]
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
@@ -625,21 +648,22 @@ final class RAMMonitor {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             guard let output = String(data: data, encoding: .utf8) else { return [] }
 
-            var processes: [ProcessInfo] = []
+            var processes: [(proc: ProcessInfo, ppid: Int32)] = []
             let lines = output.components(separatedBy: "\n").filter { !$0.isEmpty }
 
             for line in lines {
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                let components = trimmed.split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+                let components = trimmed.split(separator: " ", maxSplits: 3, omittingEmptySubsequences: true)
 
-                guard components.count >= 3,
+                guard components.count >= 4,
                       let pid = Int32(components[0]),
-                      let rssKB = Double(components[1]) else {
+                      let ppid = Int32(components[1]),
+                      let rssKB = Double(components[2]) else {
                     continue
                 }
 
-                let fullPath = String(components[2])
-                processes.append(ProcessInfo(pid: pid, name: fullPath, memoryMB: rssKB / 1024.0))
+                let fullPath = String(components[3])
+                processes.append((proc: ProcessInfo(pid: pid, name: fullPath, memoryMB: rssKB / 1024.0), ppid: ppid))
             }
 
             return processes
