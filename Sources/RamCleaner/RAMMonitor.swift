@@ -60,7 +60,7 @@ final class RAMMonitor {
         "softwareupdated", "appstoreagent",
         "driverkit", "iokitd", "kernelmanagerd",
         // Our app
-        "ramcleanner",
+        "ramcleaner",
     ]
 
     // System paths — never kill processes from these
