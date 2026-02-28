@@ -584,7 +584,7 @@ final class RAMMonitor {
             if let appRange = pathLower.range(of: ".app/") {
                 let appPath = String(pathLower[..<appRange.lowerBound])
                 let appName = URL(fileURLWithPath: appPath).lastPathComponent
-                
+
                 let matchesActive = activeAppNames.contains(appName) ||
                                     activeBundleIDs.contains(where: { $0.contains(appName) }) ||
                                     activeExecPaths.contains(where: { $0.contains(appName) })
@@ -593,12 +593,14 @@ final class RAMMonitor {
                     isOrphan = true
                 }
             }
+
             // Case B: parent is dead (ppid not in process table), and ppid != 1
-            else if ppid != 1 && !allPIDs.contains(ppid) {
+            if !isOrphan && ppid != 1 && !allPIDs.contains(ppid) {
                 isOrphan = true
             }
+
             // Case C: adopted by launchd (ppid == 1) and looks like a helper of a dead app
-            else if ppid == 1 {
+            if !isOrphan && ppid == 1 {
                 let helperIndicators = [
                     "helper", "renderer", "crashpad", "gpu", "worker", "broker", "electron"
                 ]
@@ -637,7 +639,7 @@ final class RAMMonitor {
         let pipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "pid=,ppid=,rss=,comm="]
+        process.arguments = ["-axo", "pid=,ppid=,rss=,args="]
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
 
