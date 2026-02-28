@@ -21,6 +21,11 @@ cp "${BUILD_DIR}/${APP_NAME}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 # Copy Info.plist
 cp "Info.plist" "${APP_BUNDLE}/Contents/"
 
+# Copy AppIcon.icns if it exists
+if [ -f "AppIcon.icns" ]; then
+    cp "AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
+fi
+
 # Create PkgInfo
 echo -n "APPL????" > "${APP_BUNDLE}/Contents/PkgInfo"
 

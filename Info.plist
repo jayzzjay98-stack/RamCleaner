@@ -20,5 +20,7 @@
     <true/>
     <key>NSUserNotificationAlertStyle</key>
     <string>banner</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
